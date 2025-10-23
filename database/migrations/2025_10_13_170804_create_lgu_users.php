@@ -17,8 +17,10 @@ class CreateLguUsers extends Migration
             $table->id();
             $table->string('name', 64)->unique();
             $table->string('role', 32);
+            $table->date('birth_date');
             $table->string('phone_number', 15);
             $table->string('email', 128)->unique();
+            $table->string('password');
             $table->timestamps();
         });
     }
