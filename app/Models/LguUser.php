@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
 
-class LguUser extends Model
+class LguUser extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens, Notifiable;
 
     /**
      * The table associated with the model.
@@ -26,6 +28,17 @@ class LguUser extends Model
         'role',
         'phone_number',
         'email',
+        'password',
+        'is_first_login',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
     ];
 
     /**
@@ -34,6 +47,7 @@ class LguUser extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'is_first_login' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

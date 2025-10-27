@@ -38,12 +38,19 @@ class LguUserController extends Controller
                 'email' => 'required|email|max:128|unique:lgu_users,email',
             ]);
 
+            // Generate default password
+            $defaultPassword = 'LGU' . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            
+            $validated['password'] = \Hash::make($defaultPassword);
+            $validated['is_first_login'] = true;
+
             $user = LguUser::create($validated);
 
             return response()->json([
                 'success' => true,
                 'message' => 'LGU user created successfully',
-                'data' => $user
+                'data' => $user,
+                'default_password' => $defaultPassword // Admin needs to share this with the user
             ], 201);
         } catch (ValidationException $e) {
             return response()->json([
