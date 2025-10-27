@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
+use App\Models\LguUser;
 
 class AuthController extends Controller
 {
@@ -15,27 +16,51 @@ class AuthController extends Controller
             'password' => 'required'
         ]);
 
-        if (!Auth::attempt($credentials)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        // Try to find user in admin users table first
+        $user = User::where('email', $credentials['email'])->first();
+        $userType = 'admin';
+        
+        // If not found, check LGU users table
+        if (!$user) {
+            $user = LguUser::where('email', $credentials['email'])->first();
+            $userType = 'lgu_user';
         }
 
-        $user = Auth::user();
-        
-        // Generate a simple custom token
-        $token = Str::random(60);
-        
-        // You can either store this in a custom field or just return it
-        // For now, let's just return it without storing
-        
-        return response()->json([
+        // Validate user exists and password is correct
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        // Create Sanctum token
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // Prepare response
+        $response = [
+            'success' => true,
             'user' => $user,
-            'token' => $token
-        ]);
+            'token' => $token,
+            'user_type' => $userType,
+        ];
+
+        // Add first login flag for LGU users
+        if ($userType === 'lgu_user') {
+            $response['is_first_login'] = $user->is_first_login;
+        }
+
+        return response()->json($response);
     }
 
     public function logout(Request $request)
     {
-        Auth::logout();
-        return response()->json(['message' => 'Logged out']);
+        // Delete current access token
+        $request->user()->currentAccessToken()->delete();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully'
+        ]);
     }
 }

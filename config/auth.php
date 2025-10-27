@@ -65,6 +65,11 @@ return [
             'model' => App\Models\User::class,
         ],
 
+        'lgu_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\LguUser::class,
+        ],
+
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
