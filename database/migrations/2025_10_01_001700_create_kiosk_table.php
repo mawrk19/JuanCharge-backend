@@ -27,6 +27,8 @@ class CreateKioskTable extends Migration
             $table->timestamp('registered_at')->useCurrent();
             $table->timestamp('last_active')->nullable();
             $table->timestamps(); 
+
+             $table->foreign('assigned_to')->references('id')->on('users')->onDelete('set null');
         });
     }
 
@@ -37,6 +39,6 @@ class CreateKioskTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('kiosk');
+        Schema::dropIfExists('kiosks');
     }
 }

@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LguUserController;
-use App\Http\Controllers\KioskUserController;
+use App\Http\Controllers\KioskController;
 use Illuminate\Http\Request;
 
 // Public routes
@@ -18,13 +18,13 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/lgu-users', [LguUserController::class, 'index']);
     Route::post('/lgu-users', [LguUserController::class, 'store']);
     Route::get('/lgu-users/{id}', [LguUserController::class, 'show']);
-    Route::put('/lgu-users/{id}', [LguUserController::class, 'update']);
+    Route::post('/lgu-users/{id}', [LguUserController::class, 'update']);
     Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
 
-    // Kiosk Users CRUD routes
-    Route::get('/kiosk-users', [KioskUserController::class, 'index']);
-    Route::post('/kiosk-users', [KioskUserController::class, 'store']);
-    Route::get('/kiosk-users/{id}', [KioskUserController::class, 'show']);
-    Route::put('/kiosk-users/{id}', [KioskUserController::class, 'update']);
-    Route::delete('/kiosk-users/{id}', [KioskUserController::class, 'destroy']);
+    // Kiosk CRUD routes
+    Route::get('/kiosks', [KioskController::class, 'index']);
+    Route::post('/kiosks', [KioskController::class, 'store']);
+    Route::get('/kiosks/{id}', [KioskController::class, 'show']);
+    Route::post('/kiosks/{id}', [KioskController::class, 'update']);
+    Route::delete('/kiosks/{id}', [KioskController::class, 'destroy']);
 });
