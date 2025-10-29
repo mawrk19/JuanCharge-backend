@@ -51,6 +51,10 @@ class LguUser extends Model
         'updated_at' => 'datetime',
     ];
 
+    public function kiosks()
+    {
+        return $this->hasMany(\App\Models\Kiosk::class, 'assigned_to');
+    }
     /**
      * Boot the model and register the creating event.
      */
@@ -121,4 +125,6 @@ class LguUser extends Model
 
         return $lastName . $monthDay;
     }
+
+    
 }
