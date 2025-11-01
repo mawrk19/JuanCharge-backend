@@ -149,5 +149,12 @@ class LguUserController extends Controller
             'success' => true,
             'message' => 'LGU user deleted successfully'
         ], 200);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete user: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete user: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
