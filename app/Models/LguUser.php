@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 
-class LguUser extends Model
+class LguUser extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens, Notifiable;
 
     /**
      * The table associated with the model.
@@ -29,6 +32,7 @@ class LguUser extends Model
         'phone_number',
         'email',
         'password',
+        'is_first_login',
     ];
 
     /**
@@ -46,6 +50,7 @@ class LguUser extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'is_first_login' => 'boolean',
         'birth_date' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
