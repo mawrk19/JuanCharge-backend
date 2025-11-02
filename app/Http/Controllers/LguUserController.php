@@ -44,8 +44,10 @@ class LguUserController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:64|unique:lgu_users,name',
                 'role' => 'required|string|max:32',
+                'birth_date' => 'required|date',
                 'phone_number' => 'required|string|max:15',
                 'email' => 'required|email|max:128|unique:lgu_users,email',
+                'password' => 'nullable|string|min:6', // Optional, will auto-generate if not provided
             ]);
 
             // Generate default password
@@ -191,9 +193,11 @@ JuanCharge - Powering Your Journey
 
             $validated = $request->validate([
                 'name' => 'sometimes|string|max:64|unique:lgu_users,name,' . $id,
+                'birth_date' => 'sometimes|date',
                 'role' => 'sometimes|string|max:32',
                 'phone_number' => 'sometimes|string|max:15',
                 'email' => 'sometimes|email|max:128|unique:lgu_users,email,' . $id,
+                'password' => 'nullable|string|min:6',
             ]);
 
             $user->update($validated);
