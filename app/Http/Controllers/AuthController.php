@@ -104,12 +104,6 @@ class AuthController extends Controller
      */
     public function refresh()
     {
-        // Delete current access token
-        $request->user()->currentAccessToken()->delete();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully'
         return $this->respondWithToken(auth()->refresh());
     }
 

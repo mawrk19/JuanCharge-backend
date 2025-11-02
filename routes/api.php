@@ -3,23 +3,21 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LguUserController;
 use App\Http\Controllers\ChangePasswordController;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 // Public routes
 Route::post('/auth/login', [AuthController::class, 'login']);
 
-// Password change route (protected)
-Route::post('/auth/change-password', [ChangePasswordController::class, 'changePassword'])
-    ->middleware('auth:sanctum');
-
-// LGU Users CRUD routes (protected by authentication)
+// Protected routes (require Sanctum authentication)
 Route::middleware('auth:sanctum')->group(function () {
-// Protected routes (JWT required)
-Route::middleware('auth:api')->group(function () {
+    // Auth routes
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
     Route::get('/auth/me', [AuthController::class, 'me']);
-    
+
+    // Password change route
+    Route::post('/auth/change-password', [ChangePasswordController::class, 'changePassword']);
+
     // LGU Users CRUD routes
     Route::get('/lgu-users', [LguUserController::class, 'index']);
     Route::post('/lgu-users', [LguUserController::class, 'store']);
