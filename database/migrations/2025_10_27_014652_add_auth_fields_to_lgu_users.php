@@ -14,7 +14,7 @@ class AddAuthFieldsToLguUsers extends Migration
     public function up()
     {
         Schema::table('lgu_users', function (Blueprint $table) {
-            $table->string('password')->after('email');
+            // $table->string('password')->after('email');
             $table->boolean('is_first_login')->default(true)->after('password');
         });
     }
