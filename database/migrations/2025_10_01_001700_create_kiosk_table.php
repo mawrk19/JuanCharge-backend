@@ -17,8 +17,8 @@ class CreateKioskTable extends Migration
             $table->id(); 
             $table->string('kiosk_code', 50)->unique();
             $table->string('location')->nullable();
-            $table->enum('status', ['active', 'inactive', 'maintenance'])->default('inactive');
-            $table->string('serial_number')->nullable();
+            $table->enum('status', ['active', 'inactive', 'maintenance'])->default('active');
+            $table->string('serial_number')->unique();
             $table->string('mac_address')->nullable();
             $table->string('ip_address')->nullable();
             $table->string('software_version')->nullable();
@@ -28,7 +28,7 @@ class CreateKioskTable extends Migration
             $table->timestamp('last_active')->nullable();
             $table->timestamps(); 
 
-             $table->foreign('assigned_to')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('assigned_to')->references('id')->on('lgu_users')->onDelete('set null');
         });
     }
 

@@ -50,11 +50,12 @@ class LguUser extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-
-    public function kiosks()
+    
+ public function kiosks()
     {
-        return $this->hasMany(\App\Models\Kiosk::class, 'assigned_to');
+        return $this->hasMany(Kiosk::class, 'assigned_to');
     }
+    
     /**
      * Boot the model and register the creating event.
      */
