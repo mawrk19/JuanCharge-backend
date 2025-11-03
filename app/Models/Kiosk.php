@@ -9,6 +9,8 @@ class Kiosk extends Model
 {
     use HasFactory;
 
+    protected $table = 'kiosks';
+
     protected $fillable = [
         'kiosk_code',
         'location',
@@ -19,17 +21,29 @@ class Kiosk extends Model
         'software_version',
         'assigned_to',
         'notes',
-        'registered_at',
         'last_active',
+        'registered_at',
     ];
 
     protected $casts = [
-        'registered_at' => 'datetime',
         'last_active' => 'datetime',
+        'registered_at' => 'datetime',
     ];
 
+    /**
+     * Get the LGU user assigned to this kiosk
+     * Using 'assigned_to' as the foreign key column
+     */
     public function assignedTo()
     {
-        return $this->belongsTo(\App\Models\LguUser::class, 'assigned_to');
+        return $this->belongsTo(LguUser::class, 'assigned_to', 'id');
     }
+
+    protected $appends = ['assigned_user_name'];
+
+public function getAssignedUserNameAttribute()
+{
+    return $this->assignedTo ? $this->assignedTo->name : null;
+}
+
 }
