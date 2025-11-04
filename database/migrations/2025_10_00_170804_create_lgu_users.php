@@ -15,7 +15,7 @@ class CreateLguUsers extends Migration
     {
         Schema::create('lgu_users', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 64)->unique();
+            $table->string('name', 64);
             $table->string('role', 32);
             $table->date('birth_date');
             $table->string('phone_number', 15);
