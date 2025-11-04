@@ -55,7 +55,12 @@ class LguUser extends Authenticatable
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-
+    
+ public function kiosks()
+    {
+        return $this->hasMany(Kiosk::class, 'assigned_to');
+    }
+    
     /**
      * Boot the model and register the creating event.
      */
@@ -126,4 +131,6 @@ class LguUser extends Authenticatable
 
         return $lastName . $monthDay;
     }
+
+    
 }
