@@ -8,6 +8,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Monolog\Handler\FirePHPHandler;
 
 class LguUser extends Authenticatable
 {
@@ -27,6 +28,8 @@ class LguUser extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'role',
         'birth_date',
         'phone_number',
@@ -69,9 +72,14 @@ class LguUser extends Authenticatable
         parent::boot();
 
         static::creating(function ($lguUser) {
+            // Auto-generate name if not provided
+            if (empty($lguUser->name) && !empty($lguUser->first_name) && !empty($lguUser->last_name)) {
+                $lguUser->name = trim($lguUser->first_name . ' ' . $lguUser->last_name);
+            }
+
             // Only generate password if not provided
             if (empty($lguUser->password)) {
-                $lguUser->password = static::generateDefaultPassword($lguUser->name, $lguUser->birth_date);
+                $lguUser->password = static::generateDefaultPassword($lguUser->first_name ?? $lguUser->name, $lguUser->birth_date);
             } else {
                 // If password is provided, hash it
                 $lguUser->password = Hash::make($lguUser->password);
@@ -90,25 +98,24 @@ class LguUser extends Authenticatable
     }
 
     /**
-     * Generate default password from lastname and birthday.
-     * Format: lastname + MMDD (e.g., "acedo0319")
+     * Generate default password from first name and birth date.
+     * Format: firstname + MMDDYYYY (e.g., "john05151990")
      *
-     * @param string $name Full name (e.g., "Mark Acedo")
+     * @param string $firstName First name
      * @param string|\Carbon\Carbon $birthDate Birth date
      * @return string Hashed password
      */
-    public static function generateDefaultPassword($name, $birthDate)
+    public static function generateDefaultPassword($firstName, $birthDate)
     {
-        // Extract last name (last word in the name)
-        $nameParts = explode(' ', trim($name));
-        $lastName = strtolower(end($nameParts));
-
-        // Format birth date as MMDD
+        // Clean and lowercase first name
+        $cleanFirstName = strtolower(trim($firstName));
+        
+        // Format birth date as MMDDYYYY
         $date = $birthDate instanceof \Carbon\Carbon ? $birthDate : \Carbon\Carbon::parse($birthDate);
-        $monthDay = $date->format('md'); // e.g., "0319" for March 19
+        $dateString = $date->format('mdY'); // e.g., "05151990" for May 15, 1990
 
-        // Combine lastname + MMDD
-        $plainPassword = $lastName . $monthDay;
+        // Combine firstname + MMDDYYYY
+        $plainPassword = $cleanFirstName . $dateString;
 
         // Return hashed password
         return Hash::make($plainPassword);
@@ -117,19 +124,20 @@ class LguUser extends Authenticatable
     /**
      * Get the plain default password (for display/testing purposes only).
      *
-     * @param string $name Full name
+     * @param string $firstName First name
      * @param string|\Carbon\Carbon $birthDate Birth date
      * @return string Plain password (not hashed)
      */
-    public static function getPlainDefaultPassword($name, $birthDate)
+    public static function getPlainDefaultPassword($firstName, $birthDate)
     {
-        $nameParts = explode(' ', trim($name));
-        $lastName = strtolower(end($nameParts));
-
+        // Clean and lowercase first name
+        $cleanFirstName = strtolower(trim($firstName));
+        
+        // Format birth date as MMDDYYYY
         $date = $birthDate instanceof \Carbon\Carbon ? $birthDate : \Carbon\Carbon::parse($birthDate);
-        $monthDay = $date->format('md');
+        $dateString = $date->format('mdY');
 
-        return $lastName . $monthDay;
+        return $cleanFirstName . $dateString; // e.g., "john05151990"
     }
 
     
