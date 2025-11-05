@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LguUserController;
-use App\Http\Controllers\ChangePasswordController;
+use App\Http\Controllers\KioskUserController;
 use Illuminate\Http\Request;
 
 // Public routes
@@ -26,4 +26,11 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/lgu-users/{id}', [LguUserController::class, 'show']);
     Route::put('/lgu-users/{id}', [LguUserController::class, 'update']);
     Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
+
+    // Kiosk Users CRUD routes
+    Route::get('/kiosk-users', [KioskUserController::class, 'index']);
+    Route::post('/kiosk-users', [KioskUserController::class, 'store']);
+    Route::get('/kiosk-users/{id}', [KioskUserController::class, 'show']);
+    Route::put('/kiosk-users/{id}', [KioskUserController::class, 'update']);
+    Route::delete('/kiosk-users/{id}', [KioskUserController::class, 'destroy']);
 });
