@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\KioskUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
@@ -32,6 +33,11 @@ class AuthController extends Controller
         if (!$user) {
             $user = LguUser::where('email', $credentials['email'])->first();
             $userType = 'lgu_user';
+        }
+
+        if (!$user) {
+            $user = KioskUser::where('email', $credentials['email'])->first();
+            $userType = 'kiosk_user';
         }
 
         // Validate user exists and password is correct
