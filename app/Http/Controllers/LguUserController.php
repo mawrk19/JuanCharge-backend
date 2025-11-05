@@ -242,4 +242,32 @@ class LguUserController extends Controller
             ], 500);
         }
     }
+
+    public function disableUser($id)
+    {
+        try {
+            $user = LguUser::find($id);
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'LGU user not found'
+                ], 404);
+            }
+
+            $user->status = 'inactive';
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'LGU user disabled successfully'
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Failed to disable user: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to disable user: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
