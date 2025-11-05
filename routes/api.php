@@ -4,12 +4,11 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LguUserController;
 use App\Http\Controllers\KioskController;
 use App\Http\Controllers\KioskUserController;
-use App\Http\Controllers\ChangePasswordController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
 Route::post('/auth/login', [AuthController::class, 'login']);
-Route::post('/auth/register', [KioskUserController::class, 'register']); // Public registration for kiosk users
+Route::post('/auth/register', [KioskUserController::class, 'register']);
 
 // Protected routes (require Sanctum authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -17,6 +16,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
 
     // LGU Users CRUD
     Route::get('/lgu-users', [LguUserController::class, 'index']);
@@ -28,9 +29,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Kiosks CRUD
     Route::apiResource('kiosks', KioskController::class);
-    
-    // Password change route
-    Route::post('/auth/change-password', [ChangePasswordController::class, 'changePassword']);
 
     // Kiosk Users CRUD
     Route::get('/kiosk-users', [KioskUserController::class, 'index']);
