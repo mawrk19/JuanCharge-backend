@@ -57,11 +57,24 @@ class AuthController extends Controller
             'user' => $user,
             'token' => $token,
             'user_type' => $userType,
+            'should_update_profile' => false,
+            'prompt_message' => null
         ];
 
         // Add first login flag for LGU users
-        if ($userType === 'lgu_user') {
-            $response['is_first_login'] = $user->is_first_login;
+        if ($userType === 'lgu_user' && $user->is_first_login) {
+            $response['should_update_profile'] = true;
+            $response['is_first_login'] = true;
+            $response['prompt_message'] = 'Welcome! Please update your profile and change your password for security.';
+        }
+
+        // Check if kiosk user has incomplete profile
+        if ($userType === 'kiosk_user') {
+            $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->contact_number);
+            if ($isIncomplete) {
+                $response['should_update_profile'] = true;
+                $response['prompt_message'] = 'Please complete your profile information.';
+            }
         }
 
         return response()->json($response);
@@ -128,5 +141,137 @@ class AuthController extends Controller
             'expires_in' => auth()->factory()->getTTL() * 60,
             'user' => auth()->user()
         ]);
+    }
+
+    /**
+     * Update authenticated user's profile information
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateProfile(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+
+            // Determine the table name based on user type
+            $tableName = $user->getTable();
+
+            $validated = $request->validate([
+                'name' => 'nullable|string|max:255',
+                'first_name' => 'nullable|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email|max:255|unique:' . $tableName . ',email,' . $user->id,
+                'phone_number' => 'nullable|string|max:15',
+            ]);
+
+            // Auto-generate name if first_name and last_name are provided
+            if (isset($validated['first_name']) && isset($validated['last_name'])) {
+                $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
+            }
+
+            // Mark first login as complete for LGU users
+            if ($user instanceof \App\Models\LguUser && $user->is_first_login) {
+                $validated['is_first_login'] = false;
+            }
+
+            $user->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile updated successfully',
+                'user' => $user->fresh()
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update profile',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Change authenticated user's password
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function changePassword(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+
+            $validated = $request->validate([
+                'current_password' => 'required|string',
+                'new_password' => 'required|string|min:6|confirmed',
+            ]);
+
+            // Verify current password
+            if (!Hash::check($validated['current_password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is incorrect'
+                ], 401);
+            }
+
+            // Check if new password is same as current
+            if (Hash::check($validated['new_password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'New password must be different from current password'
+                ], 422);
+            }
+
+            // Update password
+            $user->password = Hash::make($validated['new_password']);
+            $user->save();
+
+            // Revoke all existing tokens for security
+            $user->tokens()->delete();
+
+            // Create new token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password changed successfully. Please login with your new password.',
+                'token' => $token
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to change password',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
