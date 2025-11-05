@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use App\Mail\WelcomeKioskUser;
+use App\Mail\WelcomeRegisteredKioskUser;
 
 class KioskUserController extends Controller
 {
@@ -183,6 +184,73 @@ class KioskUserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'User disable failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Public registration for kiosk users (no authentication required)
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function register(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'first_name' => 'required|string|max:64',
+                'last_name' => 'required|string|max:64',
+                'email' => 'required|email|max:128|unique:kiosk_users,email',
+                'password' => 'required|string|min:6|confirmed', // Password confirmation required
+                'contact_number' => 'required|string|max:15',
+            ]);
+
+            // Auto-generate name from first_name + last_name
+            $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
+
+            // Store plain password for email
+            $plainPassword = $validated['password'];
+
+            // Hash the password before saving
+            $validated['password'] = Hash::make($validated['password']);
+
+            // Set default values for new registrations
+            $validated['points_balance'] = 0;
+            $validated['points_total'] = 0;
+            $validated['points_used'] = 0;
+
+            $user = KioskUser::create($validated);
+
+            // Create authentication token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            // Send welcome email
+            try {
+                Mail::to($user->email)->send(new WelcomeRegisteredKioskUser($user, $plainPassword));
+            } catch (\Exception $e) {
+                Log::error('Failed to send welcome email to registered kiosk user: ' . $e->getMessage());
+                // Don't fail registration if email fails
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful! Welcome to JuanCharge.',
+                'user' => $user,
+                'token' => $token,
+                'user_type' => 'kiosk_user'
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Kiosk user registration failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Registration failed. Please try again.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
