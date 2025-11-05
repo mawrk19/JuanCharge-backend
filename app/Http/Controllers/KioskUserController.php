@@ -47,6 +47,8 @@ class KioskUserController extends Controller
                 'points_total' => 'nullable|integer|min:0',
                 'points_used' => 'nullable|integer|min:0',
                 'leaderboard_rank' => 'nullable|string|max:50',
+                'total_recyclables_weight' => 'nullable|string|max:255',
+                'total_charging_time' => 'nullable|string|max:255',
             ]);
 
             // Auto-generate name from first_name + last_name
@@ -114,6 +116,8 @@ class KioskUserController extends Controller
                 'points_total' => 'nullable|integer|min:0',
                 'points_used' => 'nullable|integer|min:0',
                 'leaderboard_rank' => 'nullable|string|max:50',
+                'total_recyclables_weight' => 'nullable|string|max:255',
+                'total_charging_time' => 'nullable|string|max:255',
             ]);
 
             if (isset($validated['name']) && empty($validated['name'])) {
