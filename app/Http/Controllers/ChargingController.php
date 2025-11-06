@@ -15,8 +15,8 @@ class ChargingController extends Controller
     // Constants for conversion formulas
     const MIN_POINTS = 10;
     const MAX_POINTS_PER_SESSION = 10000;
-    const POINT_TO_WH_RATIO = 0.5;  // 1 point = 0.5 Wh
-    const MINUTES_PER_WH = 10;       // 10W port (5V × 2A)
+    const MINUTES_PER_POINT = 1;      // 1 point = 1 minute
+    const WH_PER_MINUTE = 0.167;      // 10W port: 10W ÷ 60 min = 0.167 Wh/min
 
     /**
      * Redeem points to start a charging session
@@ -73,8 +73,9 @@ class ChargingController extends Controller
 
             try {
                 // Calculate energy and duration
-                $energyWh = $pointsToRedeem * self::POINT_TO_WH_RATIO;
-                $durationMinutes = (int) ($energyWh * self::MINUTES_PER_WH);
+                // 1 point = 1 minute, 1 minute = 0.167 Wh (10W port)
+                $durationMinutes = $pointsToRedeem * self::MINUTES_PER_POINT;
+                $energyWh = $durationMinutes * self::WH_PER_MINUTE;
 
                 // Generate unique session ID
                 $sessionId = 'SESSION_' . time() . '_' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
@@ -252,7 +253,8 @@ class ChargingController extends Controller
             $timeUsedMinutes = $session->start_time->diffInMinutes($now);
             $timeForfeitedMinutes = $session->duration_minutes - $timeUsedMinutes;
 
-            $energyUsedWh = $timeUsedMinutes / self::MINUTES_PER_WH;
+            // 1 minute = 0.167 Wh (10W port)
+            $energyUsedWh = $timeUsedMinutes * self::WH_PER_MINUTE;
             $energyForfeitedWh = $session->energy_wh - $energyUsedWh;
 
             // Update session status
@@ -379,7 +381,9 @@ class ChargingController extends Controller
                 ->where('points', '<', 0)
                 ->sum('points'));
 
-            $availableEnergyWh = $user->points_balance * self::POINT_TO_WH_RATIO;
+            // Calculate available energy: points × minutes × Wh per minute
+            $availableMinutes = $user->points_balance * self::MINUTES_PER_POINT;
+            $availableEnergyWh = $availableMinutes * self::WH_PER_MINUTE;
 
             return response()->json([
                 'success' => true,
