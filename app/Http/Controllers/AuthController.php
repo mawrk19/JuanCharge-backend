@@ -308,4 +308,221 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Send password reset link to user's email
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function forgotPassword(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|email'
+            ]);
+
+            $email = $validated['email'];
+            $user = null;
+            $userType = null;
+
+            // Find user in all three tables
+            $user = User::where('email', $email)->first();
+            if ($user) {
+                $userType = 'admin';
+            }
+
+            if (!$user) {
+                $user = LguUser::where('email', $email)->first();
+                if ($user) {
+                    $userType = 'lgu_user';
+                }
+            }
+
+            if (!$user) {
+                $user = KioskUser::where('email', $email)->first();
+                if ($user) {
+                    $userType = 'kiosk_user';
+                }
+            }
+
+            // For security, always return success even if email doesn't exist
+            if (!$user) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'If this email exists, a password reset link has been sent.'
+                ], 200);
+            }
+
+            // Delete any existing reset tokens for this email
+            \App\Models\PasswordResetToken::where('email', $email)->delete();
+
+            // Generate unique token
+            $token = bin2hex(random_bytes(32));
+            
+            // Create reset token record (expires in 1 hour)
+            \App\Models\PasswordResetToken::create([
+                'email' => $email,
+                'token' => hash('sha256', $token),
+                'user_type' => $userType,
+                'expires_at' => now()->addHour()
+            ]);
+
+            // Generate reset link (frontend URL)
+            $resetLink = config('app.frontend_url', 'http://localhost:3000') . '/reset-password?token=' . $token . '&email=' . urlencode($email);
+
+            // Get user name
+            $userName = $user->name ?? $user->email;
+
+            // Send email
+            \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\PasswordResetMail($resetLink, $userName));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset link has been sent to your email.'
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send reset email',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reset password using token and send new password via email
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function resetPassword(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'token' => 'required|string'
+            ]);
+
+            $email = $validated['email'];
+            $token = $validated['token'];
+
+            // Find reset token
+            $resetToken = \App\Models\PasswordResetToken::where('email', $email)
+                ->where('token', hash('sha256', $token))
+                ->first();
+
+            // Validate token exists
+            if (!$resetToken) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or expired reset token'
+                ], 400);
+            }
+
+            // Check if token is expired
+            if (now()->gt($resetToken->expires_at)) {
+                $resetToken->delete();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reset token has expired. Please request a new one.'
+                ], 400);
+            }
+
+            // Find user based on user_type
+            $user = null;
+            switch ($resetToken->user_type) {
+                case 'admin':
+                    $user = User::where('email', $email)->first();
+                    break;
+                case 'lgu_user':
+                    $user = LguUser::where('email', $email)->first();
+                    break;
+                case 'kiosk_user':
+                    $user = KioskUser::where('email', $email)->first();
+                    break;
+            }
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not found'
+                ], 404);
+            }
+
+            // Generate new random password (8-12 characters with mix of letters, numbers)
+            $newPassword = $this->generateRandomPassword();
+
+            // Update user password
+            $user->password = Hash::make($newPassword);
+            $user->save();
+
+            // Revoke all existing tokens
+            $user->tokens()->delete();
+
+            // Delete the reset token
+            $resetToken->delete();
+
+            // Get user name
+            $userName = $user->name ?? null;
+
+            // Send new password via email
+            \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\NewPasswordMail($newPassword, $email, $userName));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password has been reset successfully. Check your email for the new password.'
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reset password',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate a random password
+     * 
+     * @return string
+     */
+    private function generateRandomPassword()
+    {
+        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        $numbers = '0123456789';
+        $special = '!@#$%';
+        
+        $password = '';
+        
+        // Ensure at least one of each type
+        $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
+        $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
+        $password .= $numbers[random_int(0, strlen($numbers) - 1)];
+        $password .= $special[random_int(0, strlen($special) - 1)];
+        
+        // Fill the rest randomly (total length 10)
+        $allChars = $uppercase . $lowercase . $numbers . $special;
+        for ($i = 4; $i < 10; $i++) {
+            $password .= $allChars[random_int(0, strlen($allChars) - 1)];
+        }
+        
+        // Shuffle the password
+        return str_shuffle($password);
+    }
 }
