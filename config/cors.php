@@ -19,6 +19,8 @@ return [
     'allowed_methods' => ['*'],
     'allowed_origins' => ['http://localhost:3000', 'http://localhost:8080'],
     'allowed_headers' => ['*'],
+    'exposed_headers' => ['Authorization'],
+    'max_age' => 86400,
     'supports_credentials' => true,
 
 ];

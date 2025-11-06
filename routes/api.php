@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LguUserController;
 use App\Http\Controllers\KioskController;
 use App\Http\Controllers\KioskUserController;
+use App\Http\Controllers\ChargingController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -16,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::get('/auth/validate', [AuthController::class, 'validateToken']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
 
@@ -43,4 +45,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/kiosks-users/{id}', [KioskUserController::class, 'show']);
     Route::put('/kiosks-users/{id}', [KioskUserController::class, 'update']);
     Route::delete('/kiosks-users/{id}', [KioskUserController::class, 'destroy']);
+
+    // Charging Session Routes
+    Route::post('/charging/redeem', [ChargingController::class, 'redeem']);
+    Route::get('/charging/active', [ChargingController::class, 'getActive']);
+    Route::post('/charging/cancel', [ChargingController::class, 'cancel']);
+    Route::get('/charging/history', [ChargingController::class, 'history']);
+    
+    // Points Routes
+    Route::get('/patron/points/balance', [ChargingController::class, 'getBalance']);
+    Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
+    
+    // Dashboard Stats
+    Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
 });
