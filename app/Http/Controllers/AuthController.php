@@ -95,9 +95,43 @@ class AuthController extends Controller
      */
     public function me()
     {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated'
+            ], 401);
+        }
+
         return response()->json([
             'success' => true,
-            'user' => auth()->user()
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * Validate if token is still valid
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function validateToken()
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token is invalid or expired',
+                'valid' => false
+            ], 401);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Token is valid',
+            'valid' => true,
+            'user' => $user
         ]);
     }
 
