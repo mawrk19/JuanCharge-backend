@@ -15,12 +15,22 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'auth/*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'auth/*', 'charging/*', 'patron/*', 'kiosks/*'],
+    
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['https://juancharge-client.vercel.app', 'https://*.vercel.app', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:5173'],
+    
+    'allowed_origins' => env('CORS_ALLOWED_ORIGINS') 
+        ? explode(',', env('CORS_ALLOWED_ORIGINS')) 
+        : ['*'],
+    
+    'allowed_origins_patterns' => [],
+    
     'allowed_headers' => ['*'],
+    
     'exposed_headers' => ['Authorization'],
-    'max_age' => 86400,
+    
+    'max_age' => 0,
+    
     'supports_credentials' => true,
 
 ];
