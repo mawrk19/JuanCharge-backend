@@ -17,7 +17,7 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['http://localhost:3000', 'http://localhost:8080'],
+    'allowed_origins' => ['http://localhost:3000', 'http://localhost:8080', 'http://localhost:5173'],
     'allowed_headers' => ['*'],
     'exposed_headers' => ['Authorization'],
     'max_age' => 86400,
