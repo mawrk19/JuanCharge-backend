@@ -6,7 +6,11 @@ node_modules/
 
 # Laravel environment
 .env
-.env.*.local
+.env.*
+!.env.example
+*.env
+.env copy
+.env\ copy
 
 # Laravel logs and cache
 /storage/*.key
