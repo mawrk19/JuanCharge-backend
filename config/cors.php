@@ -15,9 +15,9 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'auth/*'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['https://juancharge-client.vercel.app', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:5173'],
+    'allowed_origins' => ['https://juancharge-client.vercel.app', 'https://*.vercel.app', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:5173'],
     'allowed_headers' => ['*'],
     'exposed_headers' => ['Authorization'],
     'max_age' => 86400,
