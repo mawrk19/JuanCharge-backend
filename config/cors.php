@@ -15,8 +15,8 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'auth/*', 'charging/*', 'patron/*', 'kiosks/*'],
-    
+
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'auth/*', 'login', 'register', 'charging/*', 'patron/*', 'kiosks/*'],    
     'allowed_methods' => ['*'],
     
     'allowed_origins' => env('CORS_ALLOWED_ORIGINS') 
