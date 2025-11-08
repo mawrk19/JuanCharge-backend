@@ -22,8 +22,13 @@ return [
     'allowed_origins' => env('CORS_ALLOWED_ORIGINS') 
         ? explode(',', str_replace(' ', '', env('CORS_ALLOWED_ORIGINS')))
         : [
+            // Production domains
             'https://juancharge-client.vercel.app',
             'https://juan-charge-client-1ang.vercel.app',
+            // Vercel preview/deployment domains
+            'https://juan-charge-client-1ang-git-core-dev-mark-acedos-projects.vercel.app',
+            'https://juan-charge-client-1ang-4ow22przf-mark-acedos-projects.vercel.app',
+            // Local development
             'http://localhost:3000',
             'http://localhost:8080',
             'http://localhost:5173',
@@ -33,7 +38,9 @@ return [
         ],
     
     'allowed_origins_patterns' => [
-        '/^https:\/\/.*\.vercel\.app$/',
+        // Match all Vercel deployment URLs (production, preview, and branch deployments)
+        '/^https:\/\/juan-charge-client-1ang.*\.vercel\.app$/',
+        '/^https:\/\/.*-mark-acedos-projects\.vercel\.app$/',
     ],
     
     'allowed_headers' => ['*'],
