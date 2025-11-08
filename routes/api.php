@@ -5,11 +5,24 @@ use App\Http\Controllers\LguUserController;
 use App\Http\Controllers\KioskController;
 use App\Http\Controllers\KioskUserController;
 use App\Http\Controllers\ChargingController;
+use App\Http\Controllers\MobileAuthController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [KioskUserController::class, 'register']);
+
+// Mobile-specific auth routes (for patron/kiosk users)
+Route::prefix('mobile')->group(function () {
+    Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
+    Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
+    Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
+    
+    // Protected mobile routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/auth/logout', [MobileAuthController::class, 'mobileLogout']);
+    });
+});
 
 // Password reset routes (public)
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
