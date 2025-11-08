@@ -12,7 +12,7 @@ echo "TEST 1: Mobile Login"
 echo "POST $BASE_URL/auth/login"
 LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@test.com","password":"password"}')
+  -d '{"email":"mobile@test.com","password":"password"}')
 
 echo "$LOGIN_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$LOGIN_RESPONSE"
 echo ""
