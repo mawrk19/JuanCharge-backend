@@ -20,17 +20,28 @@ return [
     'allowed_methods' => ['*'],
     
     'allowed_origins' => env('CORS_ALLOWED_ORIGINS') 
-        ? explode(',', env('CORS_ALLOWED_ORIGINS')) 
-        : ['*'],
+        ? explode(',', str_replace(' ', '', env('CORS_ALLOWED_ORIGINS')))
+        : [
+            'https://juancharge-client.vercel.app',
+            'https://juan-charge-client-1ang.vercel.app',
+            'http://localhost:3000',
+            'http://localhost:8080',
+            'http://localhost:5173',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:8080',
+            'http://127.0.0.1:5173',
+        ],
     
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^https:\/\/.*\.vercel\.app$/',
+    ],
     
     'allowed_headers' => ['*'],
     
     'exposed_headers' => ['Authorization'],
     
-    'max_age' => 0,
+    'max_age' => 86400,
     
-    'supports_credentials' => true,
+    'supports_credentials' => false, // Set to false since frontend uses JWT (no cookies)
 
 ];
