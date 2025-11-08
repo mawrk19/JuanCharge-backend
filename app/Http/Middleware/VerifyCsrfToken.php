@@ -15,5 +15,6 @@ class VerifyCsrfToken extends Middleware
         'api/auth/login',
         'api/auth/logout',
         'api/auth/register',
+        'api/mobile/*', // All mobile endpoints bypass CSRF
     ];
 }
