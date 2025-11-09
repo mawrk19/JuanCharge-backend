@@ -38,6 +38,7 @@ return [
             'capacitor://localhost',
             'ionic://localhost',
             'http://localhost',
+            'https://localhost',  
         ],
     
     'allowed_origins_patterns' => [

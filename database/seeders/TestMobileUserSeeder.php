@@ -40,11 +40,12 @@ class TestMobileUserSeeder extends Seeder
             ['email' => 'patron@test.com'],
             [
                 'name' => 'Patron User',
-                'first_name' => null,
-                'last_name' => null,
+                // Use empty strings for nullable text fields to avoid strict DB constraints
+                'first_name' => '',
+                'last_name' => '',
                 'email' => 'patron@test.com',
                 'password' => Hash::make('password'),
-                'contact_number' => null,
+                'contact_number' => '',
                 'points_balance' => 500,
                 'points_total' => 500,
                 'points_used' => 0,
