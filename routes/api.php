@@ -15,14 +15,14 @@ Route::post('/auth/register', [KioskUserController::class, 'register']);
 // Mobile-specific auth routes (for patron/kiosk users)
 // These routes use stateless auth (no CSRF, no sessions, Bearer tokens only)
 Route::prefix('mobile')->middleware(['mobile-api'])->group(function () {
-    Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
-    Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
-    Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
-    
-    // Protected mobile routes (Bearer token required)
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/auth/logout', [MobileAuthController::class, 'mobileLogout']);
-    });
+Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
+Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
+Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
+
+// Protected mobile routes (Bearer token required)
+Route::middleware('auth:sanctum')->group(function () {
+Route::post('/auth/logout', [MobileAuthController::class, 'mobileLogout']);
+});
 });
 
 // Password reset routes (public)
