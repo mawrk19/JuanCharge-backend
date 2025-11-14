@@ -213,7 +213,7 @@ class KioskUserController extends Controller
                 'last_name' => 'required|string|max:64',
                 'email' => 'required|email|max:128|unique:kiosk_users,email',
                 'password' => 'required|string|min:6|confirmed', // Password confirmation required
-                'contact_number' => 'required|string|max:15',
+                'contact_number' => 'nullable|string|max:15',
             ]);
 
             // Auto-generate name from first_name + last_name
