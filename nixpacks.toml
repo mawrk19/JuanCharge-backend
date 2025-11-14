@@ -8,6 +8,10 @@ cmds = [
 
 [phases.build]
 cmds = [
+  # CLEAR ALL OLD CACHE FIRST
+  "php artisan optimize:clear",
+
+  # Now rebuild everything cleanly
   "php artisan migrate --force",
   "php artisan config:cache",
   "php artisan route:cache",
