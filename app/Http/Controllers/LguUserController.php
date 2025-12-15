@@ -14,15 +14,26 @@ class LguUserController extends Controller
     /**
      * Display a listing of LGU users.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $users = LguUser::all();
+            $perPage = $request->get('per_page', 15); // Default 15 items per page
+            $users = LguUser::paginate($perPage);
+            
             return response()->json([
                 'success' => true,
-                'data' => $users
+                'data' => $users->items(),
+                'pagination' => [
+                    'current_page' => $users->currentPage(),
+                    'last_page' => $users->lastPage(),
+                    'per_page' => $users->perPage(),
+                    'total' => $users->total(),
+                    'from' => $users->firstItem(),
+                    'to' => $users->lastItem(),
+                ]
             ], 200);
         } catch (\Exception $e) {
             Log::error('Failed to fetch users: ' . $e->getMessage());

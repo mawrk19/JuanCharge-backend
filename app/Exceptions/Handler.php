@@ -38,4 +38,33 @@ class Handler extends ExceptionHandler
             //
         });
     }
+
+    /**
+     * Render an exception into an HTTP response.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Throwable  $exception
+     * @return \Symfony\Component\HttpFoundation\Response
+     *
+     * @throws \Throwable
+     */
+    public function render($request, Throwable $exception)
+    {
+        $response = parent::render($request, $exception);
+
+        // Add CORS headers to all responses, including errors
+        if ($request->is('api/*') || $request->is('auth/*')) {
+            $origin = $request->headers->get('Origin');
+            $allowedOrigins = explode(',', str_replace(' ', '', env('CORS_ALLOWED_ORIGINS', '')));
+
+            if (in_array($origin, $allowedOrigins)) {
+                $response->headers->set('Access-Control-Allow-Origin', $origin);
+                $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+                $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+                $response->headers->set('Access-Control-Allow-Credentials', 'false');
+            }
+        }
+
+        return $response;
+    }
 }

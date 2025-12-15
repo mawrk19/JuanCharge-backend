@@ -15,7 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Auto-complete expired charging sessions every minute
+        $schedule->command('charging:complete-expired')->everyMinute();
     }
 
     /**

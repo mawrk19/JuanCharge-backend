@@ -19,6 +19,12 @@ class DatabaseSeeder extends Seeder
         $this->call([
             KioskSeeder::class,
         ]);
+        $this->call([
+            LguUserSeeder::class,
+        ]);
+        $this->call([
+            KioskUserSeeder::class,
+        ]);
     }
 
 }

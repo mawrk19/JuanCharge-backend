@@ -4,11 +4,31 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LguUserController;
 use App\Http\Controllers\KioskController;
 use App\Http\Controllers\KioskUserController;
-use App\Http\Controllers\ChangePasswordController;
+use App\Http\Controllers\ChargingController;
+use App\Http\Controllers\MobileAuthController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/register', [KioskUserController::class, 'register']);
+
+// Mobile-specific auth routes (for patron/kiosk users)
+// These routes use stateless auth (no CSRF, no sessions, Bearer tokens only)
+Route::prefix('mobile')->middleware(['mobile-api'])->group(function () {
+    Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
+    Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
+    Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
+
+    // Protected mobile routes (Bearer token required)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/auth/logout', [MobileAuthController::class, 'mobileLogout']);
+    });
+});
+
+// Password reset routes (public)
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
 // Protected routes (require Sanctum authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -16,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::get('/auth/validate', [AuthController::class, 'validateToken']);
+    Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
 
     // LGU Users CRUD
     Route::get('/lgu-users', [LguUserController::class, 'index']);
@@ -23,13 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lgu-users/{id}', [LguUserController::class, 'show']);
     Route::put('/lgu-users/{id}', [LguUserController::class, 'update']);
     Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
-    Route::patch('/lgu-users/{id}/disable', [LguUserController::    class, 'disableUser']);
+    Route::patch('/lgu-users/{id}/disable', [LguUserController::class, 'disableUser']);
 
     // Kiosks CRUD
     Route::apiResource('kiosks', KioskController::class);
-    
-    // Password change route
-    Route::post('/auth/change-password', [ChangePasswordController::class, 'changePassword']);
 
     // Kiosk Users CRUD
     Route::get('/kiosk-users', [KioskUserController::class, 'index']);
@@ -44,4 +64,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/kiosks-users/{id}', [KioskUserController::class, 'show']);
     Route::put('/kiosks-users/{id}', [KioskUserController::class, 'update']);
     Route::delete('/kiosks-users/{id}', [KioskUserController::class, 'destroy']);
+
+    // Charging Session Routes
+    Route::post('/charging/redeem', [ChargingController::class, 'redeem']);
+    Route::get('/charging/active', [ChargingController::class, 'getActive']);
+    Route::post('/charging/cancel', [ChargingController::class, 'cancel']);
+    Route::get('/charging/history', [ChargingController::class, 'history']);
+
+    // Points Routes
+    Route::get('/patron/points/balance', [ChargingController::class, 'getBalance']);
+    Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
+
+    // Dashboard Stats
+    Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
+    Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
 });

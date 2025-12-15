@@ -1,0 +1,23 @@
+[phases.setup]
+nixPkgs = ["php82", "php82Packages.composer", "nodejs_20"]
+
+[phases.install]
+cmds = [
+  "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist"
+]
+
+[phases.build]
+cmds = [
+  # CLEAR ALL OLD CACHE FIRST
+  "php artisan optimize:clear",
+
+  # Now rebuild everything cleanly
+  "php artisan migrate --force",
+  "php artisan config:cache",
+  "php artisan route:cache",
+  "php artisan view:cache",
+  "php artisan db:seed --class=TestMobileUserSeeder --force"
+]
+
+[start]
+cmd = "php -S 0.0.0.0:$PORT -t public"

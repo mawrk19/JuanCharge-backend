@@ -26,9 +26,16 @@ class KioskUser extends Authenticatable
         'leaderboard_rank',
         'total_recyclables_weight',
         'total_charging_time',
+        'device_token',
+        'token_expires_at',
     ];
 
     protected $hidden = [
         'password',
+        'device_token',
+    ];
+
+    protected $casts = [
+        'token_expires_at' => 'datetime',
     ];
 }
