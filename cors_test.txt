@@ -1,0 +1,17 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0HTTP/1.0 204 No Content
+Host: localhost:8000
+Connection: close
+X-Powered-By: PHP/8.2.28
+Cache-Control: no-cache, private
+Date: Sat, 20 Dec 2025 02:59:46 GMT
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: POST
+Access-Control-Allow-Headers: Content-Type
+Access-Control-Max-Age: 86400
+Content-type: text/html; charset=UTF-8
+
+

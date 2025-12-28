@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class MobileAuthController extends Controller
 {
@@ -209,6 +212,161 @@ class MobileAuthController extends Controller
             'success' => true,
             'message' => 'Device token refreshed',
             'token_expires_at' => $expiresAt->toIso8601String()
+        ]);
+    }
+
+    /**
+     * Start OTP Process
+     * Initiates the login/registration process by sending a verification code.
+     * 
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function startOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'identifier' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The identifier field is required.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $identifier = $request->input('identifier');
+        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+        $isMobile = preg_match('/^09\d{9}$/', $identifier); // Philippine mobile format
+
+        if (!$isEmail && !$isMobile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Identifier must be a valid email or mobile number (09xxxxxxxxx).'
+            ], 422);
+        }
+
+        // Generate a 6-digit OTP
+        $otp = (string) rand(100000, 999999);
+        
+        // For local/dev testing, you can see it in logs
+        // Cache it for 10 minutes
+        Cache::put('otp_' . $identifier, $otp, now()->addMinutes(10));
+
+        // Send OTP (Mock for now)
+        if ($isEmail) {
+            Log::info("OTP for email {$identifier}: {$otp}");
+        } else {
+            Log::info("OTP for mobile {$identifier}: {$otp}");
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification code sent.'
+        ]);
+    }
+
+    /**
+     * Verify OTP & Login/Create
+     * Validates the code and logs the user in.
+     * 
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function verifyOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'identifier' => 'required|string',
+            'code' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid input.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $identifier = $request->input('identifier');
+        $code = $request->input('code');
+
+        // Check Cache
+        $cachedOtp = Cache::get('otp_' . $identifier);
+
+        if (!$cachedOtp || $cachedOtp !== $code) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired verification code.'
+            ], 422);
+        }
+
+        // Clear OTP after successful verification
+        Cache::forget('otp_' . $identifier);
+
+        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+        
+        // Find or create user
+        if ($isEmail) {
+            $user = KioskUser::where('email', $identifier)->first();
+        } else {
+            $user = KioskUser::where('contact_number', $identifier)->first();
+        }
+
+        $isNewUser = false;
+        if (!$user) {
+            $isNewUser = true;
+            $user = new KioskUser();
+            if ($isEmail) {
+                $user->email = $identifier;
+            } else {
+                $user->contact_number = $identifier;
+            }
+            // Set basic defaults for new users
+            $user->name = 'New User'; 
+            $user->first_name = '';
+            $user->last_name = '';
+            // Password is optional - users can login via OTP
+            // No auto-generated password needed
+        }
+
+        // Update verification timestamp
+        if ($isEmail) {
+            $user->email_verified_at = now();
+        } else {
+            $user->contact_number_verified_at = now();
+        }
+
+        // Generate a persistent device token (long-lived) for auto-login
+        $deviceToken = Str::random(80);
+        $expiresAt = now()->addDays(365); // "Forever" - set to 1 year
+
+        $user->device_token = hash('sha256', $deviceToken);
+        $user->token_expires_at = $expiresAt;
+        $user->save();
+
+        // Issue Sanctum Token for immediate API use
+        $token = $user->createToken('mobile_auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful',
+            'api_token' => $token,
+            'device_token' => $deviceToken,
+            'token_expires_at' => $expiresAt->toIso8601String(),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'contact_number' => $user->contact_number,
+                'points_balance' => $user->points_balance,
+                'points_total' => $user->points_total,
+                'points_used' => $user->points_used,
+            ],
+            'should_update_profile' => $isNewUser || empty($user->first_name) || empty($user->last_name) || empty($user->contact_number)
         ]);
     }
 }

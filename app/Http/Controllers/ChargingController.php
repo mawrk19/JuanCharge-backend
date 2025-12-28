@@ -35,11 +35,32 @@ class ChargingController extends Controller
 
             $validated = $request->validate([
                 'points' => 'required|integer|min:' . self::MIN_POINTS . '|max:' . self::MAX_POINTS_PER_SESSION,
-                'kiosk_id' => 'nullable|integer|exists:kiosks,id',
+                'kiosk_id' => 'nullable|string', // Changed from integer/exists to string to support MAC
             ]);
 
             $pointsToRedeem = $validated['points'];
-            $kioskId = $validated['kiosk_id'] ?? null;
+            $kioskIdentifier = $validated['kiosk_id'] ?? null;
+            $kioskId = null;
+
+            if ($kioskIdentifier) {
+                if (is_numeric($kioskIdentifier)) {
+                    $kioskId = (int) $kioskIdentifier;
+                } else if (str_starts_with($kioskIdentifier, 'kiosk-')) {
+                    $macAddress = str_replace('kiosk-', '', $kioskIdentifier);
+                    $kiosk = \App\Models\Kiosk::where('mac_address', $macAddress)->first();
+                    if ($kiosk) {
+                        $kioskId = $kiosk->id;
+                    } else {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Kiosk not found with the provided identifier'
+                        ], 404);
+                    }
+                } else {
+                    // Try direct ID if it's just a number string but not pure numeric (though is_numeric handles most)
+                    $kioskId = (int) $kioskIdentifier;
+                }
+            }
 
             // Check for active session
             $activeSession = ChargingSession::where('user_id', $user->id)
@@ -47,14 +68,22 @@ class ChargingController extends Controller
                 ->first();
 
             if ($activeSession) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You already have an active charging session',
-                    'data' => [
-                        'active_session_id' => $activeSession->session_id,
-                        'remaining_time_minutes' => $activeSession->remaining_minutes
-                    ]
-                ], 400);
+                if ($activeSession->isExpired()) {
+                    // Automatically mark as completed if it's expired but still shown as active
+                    $activeSession->status = 'completed';
+                    $activeSession->completed_at = $activeSession->end_time;
+                    $activeSession->save();
+                    $activeSession = null; // Clear it so we can proceed
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You already have an active charging session',
+                        'data' => [
+                            'active_session_id' => $activeSession->session_id,
+                            'remaining_time_minutes' => $activeSession->remaining_minutes
+                        ]
+                    ], 400);
+                }
             }
 
             // Check sufficient balance
@@ -171,6 +200,20 @@ class ChargingController extends Controller
                 ->first();
 
             if (!$session) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'session' => null
+                    ]
+                ], 200);
+            }
+
+            // Check if it's expired
+            if ($session->isExpired()) {
+                $session->status = 'completed';
+                $session->completed_at = $session->end_time;
+                $session->save();
+                
                 return response()->json([
                     'success' => true,
                     'data' => [
@@ -501,12 +544,12 @@ class ChargingController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_points' => $user->points_balance,
-                    'total_charges' => $totalCharges,
+                    'total_points' => (int) $user->points_balance,
+                    'total_charges' => (int) $totalCharges,
+                    'total_recyclables_weight_kg' => round((float) $totalRecyclablesWeight, 2),
+                    'co2_saved_kg' => round((float) $co2Saved, 2),
+                    // Adding energy for backward compatibility if needed, but primary structure matches request
                     'energy_used_kwh' => round($totalEnergyKwh, 2),
-                    'energy_used_wh' => round($totalEnergyWh, 2),
-                    'co2_saved_kg' => round($co2Saved, 2),
-                    'total_recyclables_weight_kg' => round($totalRecyclablesWeight, 2),
                 ]
             ], 200);
 
@@ -516,6 +559,131 @@ class ChargingController extends Controller
                 'success' => false,
                 'message' => 'Failed to retrieve dashboard stats: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Get Community Leaderboard
+     */
+    public function getLeaderboard()
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            // Get top 10 users ranked by total points earned
+            // Note: KioskUser needs to have points_total for this to be effective
+            $rankings = KioskUser::orderBy('points_total', 'desc')
+                ->limit(10)
+                ->get()
+                ->map(function ($u, $index) {
+                    return [
+                        'rank' => $index + 1,
+                        'name' => $u->name ?: 'Juan Dela Cruz', // Fallback name
+                        'recycled' => (float) ($u->total_recyclables_weight ?? 0),
+                        'points' => (int) ($u->points_total ?? 0),
+                        'bonus' => 0 // Future: implement bonus points logic
+                    ];
+                });
+
+            // Calculate current user's rank
+            // rank = 1 + number of users with more points
+            $userRank = KioskUser::where('points_total', '>', $user->points_total)->count() + 1;
+
+            // Optional: percent to next rank (simplified logic: progress towards top 10 if not in it)
+            $percentToRank = 0;
+            if ($userRank > 10) {
+                $top10Threshold = KioskUser::orderBy('points_total', 'desc')->skip(9)->take(1)->value('points_total') ?? 1000;
+                $percentToRank = min(100, round(($user->points_total / max(1, $top10Threshold)) * 100));
+            } else {
+                $percentToRank = 100;
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'rankings' => $rankings,
+                    'user_stats' => [
+                        'rank' => $userRank,
+                        'name' => 'You',
+                        'points' => (int) $user->points_total,
+                        'recycled_count' => (float) ($user->total_recyclables_weight ?? 0),
+                        'percent_to_rank' => $percentToRank
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Leaderboard error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to fetch leaderboard'], 500);
+        }
+    }
+
+    /**
+     * Get Dynamic Achievements
+     */
+    public function getAchievements()
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $totalCharges = ChargingSession::where('user_id', $user->id)
+                ->whereIn('status', ['completed', 'cancelled'])
+                ->count();
+
+            $totalRecycled = (float) ($user->total_recyclables_weight ?? 0);
+            $pointsTotal = (int) ($user->points_total ?? 0);
+
+            $achievements = [
+                [
+                    'id' => 'first_charge',
+                    'title' => 'First Charge',
+                    'is_completed' => $totalCharges >= 1,
+                    'progress' => min(1, $totalCharges),
+                    'target' => 1,
+                    'points_reward' => 10
+                ],
+                [
+                    'id' => 'eco_warrior',
+                    'title' => 'Eco Warrior',
+                    'is_completed' => $totalRecycled >= 50,
+                    'progress' => round($totalRecycled, 1),
+                    'target' => 50,
+                    'points_reward' => 50
+                ],
+                [
+                    'id' => 'juice_up',
+                    'title' => 'Juice Up',
+                    'is_completed' => $totalCharges >= 10,
+                    'progress' => $totalCharges,
+                    'target' => 10,
+                    'points_reward' => 25
+                ],
+                [
+                    'id' => 'point_collector',
+                    'title' => 'Point Collector',
+                    'is_completed' => $pointsTotal >= 1000,
+                    'progress' => $pointsTotal,
+                    'target' => 1000,
+                    'points_reward' => 100
+                ]
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $achievements
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Achievements error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to fetch achievements'], 500);
         }
     }
 }

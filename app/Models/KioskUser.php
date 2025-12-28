@@ -28,6 +28,8 @@ class KioskUser extends Authenticatable
         'total_charging_time',
         'device_token',
         'token_expires_at',
+        'email_verified_at',
+        'contact_number_verified_at',
     ];
 
     protected $hidden = [
@@ -37,5 +39,7 @@ class KioskUser extends Authenticatable
 
     protected $casts = [
         'token_expires_at' => 'datetime',
+        'email_verified_at' => 'datetime',
+        'contact_number_verified_at' => 'datetime',
     ];
 }

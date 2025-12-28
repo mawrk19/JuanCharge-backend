@@ -68,27 +68,24 @@ class KioskUserController extends Controller
                 $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
             }
 
-            // Auto-generate password if not provided (patron + 10 random characters)
-            $plainPassword = null;
-            if (empty($validated['password'])) {
-                $plainPassword = 'patron' . bin2hex(random_bytes(5)); // patron + 10 random chars
-                $validated['password'] = $plainPassword;
+            // Password is optional for kiosk users
+            // Only hash if password is provided
+            if (!empty($validated['password'])) {
+                $validated['password'] = Hash::make($validated['password']);
             } else {
-                $plainPassword = $validated['password'];
+                // Remove password from validated data if empty
+                unset($validated['password']);
             }
-
-            // Hash the password before saving
-            $validated['password'] = Hash::make($validated['password']);
 
             $user = KioskUser::create($validated);
 
             // Send welcome email with credentials
-            try {
-                Mail::to($user->email)->send(new WelcomeKioskUser($user, $plainPassword));
-            } catch (\Exception $e) {
-                Log::error('Failed to send welcome email to kiosk user: ' . $e->getMessage());
-                // Don't fail the user creation if email fails
-            }
+            // try {
+            //     Mail::to($user->email)->send(new WelcomeKioskUser($user, $plainPassword));
+            // } catch (\Exception $e) {
+            //     Log::error('Failed to send welcome email to kiosk user: ' . $e->getMessage());
+            //     // Don't fail the user creation if email fails
+            // }
 
             return response()->json([
                 'success' => true,

@@ -53,6 +53,6 @@ return [
     
     'max_age' => 86400,
     
-    'supports_credentials' => false, // Set to false since frontend uses JWT (no cookies)
+    'supports_credentials' => true,
 
 ];

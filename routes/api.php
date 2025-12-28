@@ -15,9 +15,11 @@ Route::post('/auth/register', [KioskUserController::class, 'register']);
 // Mobile-specific auth routes (for patron/kiosk users)
 // These routes use stateless auth (no CSRF, no sessions, Bearer tokens only)
 Route::prefix('mobile')->middleware(['mobile-api'])->group(function () {
-Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
-Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
-Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
+    Route::post('/auth/otp/start', [MobileAuthController::class, 'startOtp'])->middleware('throttle:3,1');
+    Route::post('/auth/otp/verify', [MobileAuthController::class, 'verifyOtp'])->middleware('throttle:6,1');
+    Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
+    Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
+    Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
 
 // Protected mobile routes (Bearer token required)
 Route::middleware('auth:sanctum')->group(function () {
@@ -74,6 +76,8 @@ Route::get('/charging/history', [ChargingController::class, 'history']);
 Route::get('/patron/points/balance', [ChargingController::class, 'getBalance']);
 Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
 
-// Dashboard Stats
+// Dashboard Stats & Social
 Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
+Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
+Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
 });
