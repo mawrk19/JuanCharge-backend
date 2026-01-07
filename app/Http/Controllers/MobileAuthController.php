@@ -348,10 +348,12 @@ class MobileAuthController extends Controller
                 $user->password = Hash::make(Str::random(32));
             }
 
-            // Update verification timestamp
-            if ($isEmail) {
+            // Update verification timestamp (with safety check for missing columns)
+            $columns = \Illuminate\Support\Facades\Schema::getColumnListing($user->getTable());
+            
+            if ($isEmail && in_array('email_verified_at', $columns)) {
                 $user->email_verified_at = now();
-            } else {
+            } elseif (!$isEmail && in_array('contact_number_verified_at', $columns)) {
                 $user->contact_number_verified_at = now();
             }
 
@@ -359,8 +361,14 @@ class MobileAuthController extends Controller
             $deviceToken = Str::random(80);
             $expiresAt = now()->addDays(365); // "Forever" - set to 1 year
 
-            $user->device_token = hash('sha256', $deviceToken);
-            $user->token_expires_at = $expiresAt;
+            if (in_array('device_token', $columns)) {
+                $user->device_token = hash('sha256', $deviceToken);
+            }
+            
+            if (in_array('token_expires_at', $columns)) {
+                $user->token_expires_at = $expiresAt;
+            }
+            
             $user->save();
 
             // Issue Sanctum Token for immediate API use
@@ -427,7 +435,9 @@ class MobileAuthController extends Controller
                 'table' => $table,
                 'columns' => $columns,
                 'missing_required_columns' => array_values($missing),
-                'is_ok' => empty($missing)
+                'is_ok' => empty($missing),
+                'action_required' => empty($missing) ? 'None' : 'Run migrations on production server',
+                'command_to_run' => empty($missing) ? null : 'php artisan migrate --force'
             ]);
         } catch (\Exception $e) {
              return response()->json([

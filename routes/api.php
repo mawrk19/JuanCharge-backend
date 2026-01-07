@@ -16,19 +16,21 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [KioskUserController::class, 'register']);
 
 // Mobile-specific auth routes (for patron/kiosk users)
-// These routes use stateless auth (no CSRF, no sessions, Bearer tokens only)
-Route::prefix('mobile')->middleware(['mobile-api'])->group(function () {
+Route::middleware(['mobile-api'])->group(function () {
+    // OTP Routes (Matches user's request: /api/auth/otp/start)
     Route::post('/auth/otp/start', [MobileAuthController::class, 'startOtp'])->middleware('throttle:3,1');
     Route::post('/auth/otp/verify', [MobileAuthController::class, 'verifyOtp'])->middleware('throttle:6,1');
-    Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
-    Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
-    Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
-    Route::get('/debug-check', [MobileAuthController::class, 'debugCheck']); // Temporary debug endpoint
+    
+    // Legacy/Direct Login Routes
+    Route::post('/auth/mobile/login', [MobileAuthController::class, 'mobileLogin']);
+    Route::post('/auth/mobile/auto-login', [MobileAuthController::class, 'autoLogin']);
+    Route::post('/auth/mobile/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
+    Route::get('/auth/mobile/debug-check', [MobileAuthController::class, 'debugCheck']); 
 
-// Protected mobile routes (Bearer token required)
-Route::middleware('auth:sanctum')->group(function () {
-Route::post('/auth/logout', [MobileAuthController::class, 'mobileLogout']);
-});
+    // Protected mobile routes (Bearer token required)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/auth/mobile/logout', [MobileAuthController::class, 'mobileLogout']);
+    });
 });
 
 // Password reset routes (public)
