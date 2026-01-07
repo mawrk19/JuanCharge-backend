@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
 
 class MobileAuthController extends Controller
 {
@@ -254,11 +255,19 @@ class MobileAuthController extends Controller
         // Cache it for 10 minutes
         Cache::put('otp_' . $identifier, $otp, now()->addMinutes(10));
 
-        // Send OTP (Mock for now)
+        // Send OTP via Brevo
+        $sentInfo = null;
         if ($isEmail) {
-            Log::info("OTP for email {$identifier}: {$otp}");
+            $this->sendBrevoEmail($identifier, $otp);
+            Log::info("OTP sent to email {$identifier}");
         } else {
-            Log::info("OTP for mobile {$identifier}: {$otp}");
+            // Convert to international format if needed (PH specific)
+            $mobile = $identifier;
+            if (str_starts_with($mobile, '0')) {
+                $mobile = '63' . substr($mobile, 1);
+            }
+            $this->sendBrevoSms($mobile, $otp);
+            Log::info("OTP sent to mobile {$mobile}");
         }
 
         return response()->json([
@@ -327,8 +336,8 @@ class MobileAuthController extends Controller
             $user->name = 'New User'; 
             $user->first_name = '';
             $user->last_name = '';
-            // Password is optional - users can login via OTP
-            // No auto-generated password needed
+            // Generate random password to satisfy DB constraint
+            $user->password = Hash::make(Str::random(32));
         }
 
         // Update verification timestamp
@@ -368,5 +377,72 @@ class MobileAuthController extends Controller
             ],
             'should_update_profile' => $isNewUser || empty($user->first_name) || empty($user->last_name) || empty($user->contact_number)
         ]);
+    }
+
+    /**
+     * Send OTP via Brevo Email API
+     */
+    private function sendBrevoEmail($email, $otp)
+    {
+        $apiKey = config('services.brevo.key');
+        
+        if (!$apiKey) {
+            Log::error('Brevo API key not configured');
+            return;
+        }
+
+        $response = Http::withOptions(['verify' => false])->withHeaders([
+            'api-key' => $apiKey,
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json'
+        ])->post('https://api.brevo.com/v3/smtp/email', [
+            'sender' => [
+                'name' => config('app.name', 'JuanCharge'),
+                'email' => config('mail.from.address', 'no-reply@juancharge.com')
+            ],
+            'to' => [
+                ['email' => $email]
+            ],
+            'subject' => 'Your Login Verification Code',
+             'htmlContent' => "
+                <div style='font-family: Arial, sans-serif; padding: 20px; color: #333;'>
+                    <h2>Verification Code</h2>
+                    <p>Your OTP code is:</p>
+                    <h1 style='color: #4CAF50; font-size: 32px; letter-spacing: 5px;'>{$otp}</h1>
+                    <p>This code will expire in 10 minutes.</p>
+                </div>
+            "
+        ]);
+
+        if (!$response->successful()) {
+            Log::error('Brevo Email Error: ' . $response->body());
+        }
+    }
+
+    /**
+     * Send OTP via Brevo SMS API
+     */
+    private function sendBrevoSms($mobile, $otp)
+    {
+        $apiKey = config('services.brevo.key');
+
+        if (!$apiKey) {
+            Log::error('Brevo API key not configured');
+            return;
+        }
+
+        $response = Http::withOptions(['verify' => false])->withHeaders([
+            'api-key' => $apiKey,
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json'
+        ])->post('https://api.brevo.com/v3/transactionalSMS/sms', [
+            'sender' => 'JuanCharge', // Max 11 alphanumeric chars
+            'recipient' => $mobile,
+            'content' => "Your JuanCharge verification code is: {$otp}"
+        ]);
+
+        if (!$response->successful()) {
+            Log::error('Brevo SMS Error: ' . $response->body());
+        }
     }
 }
