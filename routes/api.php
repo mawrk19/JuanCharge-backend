@@ -82,6 +82,9 @@ Route::get('/charging/history', [ChargingController::class, 'history']);
 Route::get('/patron/points/balance', [ChargingController::class, 'getBalance']);
 Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
 
+// Recycling Routes
+Route::post('/patron/recycling/deposit', [ChargingController::class, 'depositRecyclables']);
+
 // Dashboard Stats & Social
 Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
 Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);

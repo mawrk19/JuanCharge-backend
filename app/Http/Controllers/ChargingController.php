@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ChargingSession;
 use App\Models\PointsTransaction;
 use App\Models\KioskUser;
+use App\Models\RecyclingLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -123,8 +124,11 @@ class ChargingController extends Controller
                     PointsTransaction::create([
                         'user_id' => $user->id,
                         'transaction_type' => 'redeemed',
+                        'type' => 'charge',
+                        'title' => 'Extended Session',
                         'points' => -$pointsToRedeem,
                         'balance_after' => $user->points_balance,
+                        'status' => 'completed',
                         'reference_type' => 'charging_session',
                         'reference_id' => $activeSession->session_id,
                         'description' => 'Extended charging session',
@@ -225,8 +229,11 @@ class ChargingController extends Controller
                 PointsTransaction::create([
                     'user_id' => $user->id,
                     'transaction_type' => 'redeemed',
+                    'type' => 'charge',
+                    'title' => 'New Charging Session',
                     'points' => -$pointsToRedeem,
                     'balance_after' => $user->points_balance,
+                    'status' => 'completed',
                     'reference_type' => 'charging_session',
                     'reference_id' => $sessionId,
                     'description' => 'Redeemed for charging session',
@@ -451,7 +458,7 @@ class ChargingController extends Controller
 
             $sessions = $query->paginate($perPage);
 
-            $data = $sessions->map(function ($session) {
+            $data = $sessions->getCollection()->map(function ($session) {
                 return [
                     'session_id' => $session->session_id,
                     'points_redeemed' => $session->points_redeemed,
@@ -565,15 +572,16 @@ class ChargingController extends Controller
 
             $transactions = $query->paginate($perPage);
 
-            $data = $transactions->map(function ($transaction) {
+            $data = $transactions->getCollection()->map(function ($transaction) {
                 return [
-                    'id' => $transaction->id,
-                    'transaction_type' => $transaction->transaction_type,
-                    'points' => $transaction->points,
-                    'balance_after' => $transaction->balance_after,
-                    'reference_type' => $transaction->reference_type,
-                    'reference_id' => $transaction->reference_id,
-                    'description' => $transaction->description,
+                    'id' => 'TXN_' . $transaction->id,
+                    'type' => $transaction->type ?? 'other',
+                    'title' => $transaction->title ?? $transaction->description,
+                    'amount' => abs($transaction->points),
+                    'transaction_type' => $transaction->points > 0 ? 'credit' : 'debit',
+                    'status' => $transaction->status ?? 'completed',
+                    'points_before' => $transaction->balance_after - $transaction->points,
+                    'points_after' => $transaction->balance_after,
                     'created_at' => $transaction->created_at->toIso8601String(),
                 ];
             });
@@ -775,6 +783,84 @@ class ChargingController extends Controller
         } catch (\Exception $e) {
             Log::error('Achievements error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Failed to fetch achievements'], 500);
+        }
+    }
+
+    /**
+     * Record a recycling deposit and award points
+     */
+    public function depositRecyclables(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $validated = $request->validate([
+                'weight_kg' => 'required|numeric|min:0.1',
+                'kiosk_id' => 'nullable|exists:kiosks,id',
+                'item_type' => 'nullable|string',
+            ]);
+
+            // Simple formula: 1kg = 15 points
+            $pointsToEarn = ceil($validated['weight_kg'] * 15);
+
+            DB::beginTransaction();
+            try {
+                // Create recycling log
+                $log = RecyclingLog::create([
+                    'user_id' => $user->id,
+                    'kiosk_id' => $request->kiosk_id,
+                    'weight_kg' => $validated['weight_kg'],
+                    'points_earned' => $pointsToEarn,
+                    'item_type' => $validated['item_type'] ?? 'mixed',
+                    'status' => 'completed',
+                ]);
+
+                // Update user points and stats
+                $user->points_balance += $pointsToEarn;
+                $user->points_total += $pointsToEarn;
+                $user->total_recyclables_weight += $validated['weight_kg'];
+                $user->save();
+
+                // Create transaction history record
+                PointsTransaction::create([
+                    'user_id' => $user->id,
+                    'transaction_type' => 'earned',
+                    'type' => 'recycling',
+                    'title' => 'Recycling Deposit',
+                    'points' => $pointsToEarn,
+                    'balance_after' => $user->points_balance,
+                    'status' => 'completed',
+                    'reference_type' => 'recycling_log',
+                    'reference_id' => $log->id,
+                    'description' => "Earned $pointsToEarn points for {$validated['weight_kg']}kg of recyclables",
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Recyclables deposited successfully!',
+                    'data' => [
+                        'points_earned' => $pointsToEarn,
+                        'new_balance' => $user->points_balance,
+                        'total_weight_kg' => $user->total_recyclables_weight
+                    ]
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Recycling deposit error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process recycling deposit: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -5,28 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PointsTransaction extends Model
+class RecyclingLog extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'transaction_type',
-        'type',
-        'title',
-        'points',
+        'kiosk_id',
+        'weight_kg',
+        'points_earned',
+        'item_type',
         'status',
-        'balance_after',
-        'reference_type',
-        'reference_id',
-        'description',
+        'notes',
     ];
 
-    /**
-     * Get the user that owns the transaction
-     */
     public function user()
     {
         return $this->belongsTo(KioskUser::class, 'user_id');
+    }
+
+    public function kiosk()
+    {
+        return $this->belongsTo(Kiosk::class, 'kiosk_id');
     }
 }
