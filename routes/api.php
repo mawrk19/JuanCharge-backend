@@ -9,6 +9,9 @@ use App\Http\Controllers\MobileAuthController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
+Route::get('/', function () {
+    return response()->json(['message' => 'API is working']);
+});
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [KioskUserController::class, 'register']);
 
