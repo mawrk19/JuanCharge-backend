@@ -23,6 +23,7 @@ Route::prefix('mobile')->middleware(['mobile-api'])->group(function () {
     Route::post('/auth/login', [MobileAuthController::class, 'mobileLogin']);
     Route::post('/auth/auto-login', [MobileAuthController::class, 'autoLogin']);
     Route::post('/auth/refresh-token', [MobileAuthController::class, 'refreshDeviceToken']);
+    Route::get('/debug-check', [MobileAuthController::class, 'debugCheck']); // Temporary debug endpoint
 
 // Protected mobile routes (Bearer token required)
 Route::middleware('auth:sanctum')->group(function () {
