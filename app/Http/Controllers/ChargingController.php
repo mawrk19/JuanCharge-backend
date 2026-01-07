@@ -36,6 +36,7 @@ class ChargingController extends Controller
             $validated = $request->validate([
                 'points' => 'required|integer|min:' . self::MIN_POINTS . '|max:' . self::MAX_POINTS_PER_SESSION,
                 'kiosk_id' => 'nullable|string', // Changed from integer/exists to string to support MAC
+                'session_id' => 'nullable|string', // For extending existing sessions
             ]);
 
             $pointsToRedeem = $validated['points'];
@@ -62,11 +63,101 @@ class ChargingController extends Controller
                 }
             }
 
+            $requestedSessionId = $validated['session_id'] ?? null;
+
             // Check for active session
             $activeSession = ChargingSession::where('user_id', $user->id)
                 ->where('status', 'active')
                 ->first();
 
+            // Handle session extension if session_id is provided
+            if ($requestedSessionId) {
+                // Verify the session exists and belongs to the user
+                if (!$activeSession || $activeSession->session_id !== $requestedSessionId) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid session ID or session not found'
+                    ], 404);
+                }
+
+                // Check if session is expired
+                if ($activeSession->isExpired()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot extend an expired session'
+                    ], 400);
+                }
+
+                // Check sufficient balance for extension
+                if ($user->points_balance < $pointsToRedeem) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Insufficient points balance',
+                        'data' => [
+                            'required' => $pointsToRedeem,
+                            'available' => $user->points_balance
+                        ]
+                    ], 400);
+                }
+
+                // Perform session extension
+                DB::beginTransaction();
+
+                try {
+                    // Calculate additional time and energy
+                    $additionalMinutes = $pointsToRedeem * self::MINUTES_PER_POINT;
+                    $additionalEnergyWh = $additionalMinutes * self::WH_PER_MINUTE;
+
+                    // Update session
+                    $activeSession->duration_minutes += $additionalMinutes;
+                    $activeSession->energy_wh += $additionalEnergyWh;
+                    $activeSession->points_redeemed += $pointsToRedeem;
+                    $activeSession->end_time = $activeSession->end_time->addMinutes($additionalMinutes);
+                    $activeSession->save();
+
+                    // Deduct points from user balance
+                    $user->points_balance -= $pointsToRedeem;
+                    $user->save();
+
+                    // Create points transaction record
+                    PointsTransaction::create([
+                        'user_id' => $user->id,
+                        'transaction_type' => 'redeemed',
+                        'points' => -$pointsToRedeem,
+                        'balance_after' => $user->points_balance,
+                        'reference_type' => 'charging_session',
+                        'reference_id' => $activeSession->session_id,
+                        'description' => 'Extended charging session',
+                    ]);
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Charging session extended successfully',
+                        'data' => [
+                            'session' => [
+                                'session_id' => $activeSession->session_id,
+                                'points_redeemed' => $activeSession->points_redeemed,
+                                'energy_wh' => (float) $activeSession->energy_wh,
+                                'duration_minutes' => $activeSession->duration_minutes,
+                                'start_time' => $activeSession->start_time->toIso8601String(),
+                                'end_time' => $activeSession->end_time->toIso8601String(),
+                                'status' => $activeSession->status,
+                                'remaining_minutes' => $activeSession->remaining_minutes
+                            ],
+                            'updated_balance' => $user->points_balance,
+                            'extended_by_minutes' => $additionalMinutes
+                        ]
+                    ], 200);
+
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
+            }
+
+            // Original logic: Check for active session when NOT extending
             if ($activeSession) {
                 if ($activeSession->isExpired()) {
                     // Automatically mark as completed if it's expired but still shown as active
