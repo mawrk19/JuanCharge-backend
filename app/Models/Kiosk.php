@@ -15,12 +15,7 @@ class Kiosk extends Model
         'kiosk_code',
         'location',
         'status',
-        'serial_number',
-        'mac_address',
-        'ip_address',
-        'software_version',
         'assigned_to',
-        'notes',
         'last_active',
         'registered_at',
     ];
@@ -37,6 +32,14 @@ class Kiosk extends Model
     public function assignedTo()
     {
         return $this->belongsTo(LguUser::class, 'assigned_to', 'id');
+    }
+
+    /**
+     * Get the charging sessions for this kiosk
+     */
+    public function sessions()
+    {
+        return $this->hasMany(ChargingSession::class, 'kiosk_id');
     }
 
     protected $appends = ['assigned_user_name'];

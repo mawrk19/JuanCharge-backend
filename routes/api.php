@@ -6,6 +6,7 @@ use App\Http\Controllers\KioskController;
 use App\Http\Controllers\KioskUserController;
 use App\Http\Controllers\ChargingController;
 use App\Http\Controllers\MobileAuthController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -89,4 +90,12 @@ Route::post('/patron/recycling/deposit', [ChargingController::class, 'depositRec
 Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
 Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
 Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
+
+// Admin Dashboard Routes
+Route::prefix('dashboard')->group(function () {
+    Route::get('/overview', [DashboardController::class, 'getOverview']);
+    Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
+    Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
+    Route::get('/chart', [DashboardController::class, 'getChartData']);
+});
 });
