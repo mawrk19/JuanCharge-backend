@@ -50,14 +50,14 @@ class KioskController extends Controller
             $validated = $request->validate([
                 'kiosk_code' => 'required|string|max:50|unique:kiosks',
                 'location' => 'required|string|max:255',
-                'status' => 'required|string|in:active,inactive,maintenance',
-                'serial_number' => 'required|string|unique:kiosks',
-                'mac_address' => 'nullable|string',
-                'ip_address' => 'nullable|ip',
-                'software_version' => 'nullable|string',
+                'status' => 'nullable|string|in:active,inactive,maintenance',
                 'assigned_to' => 'nullable|exists:lgu_users,id',
-                'notes' => 'nullable|string',
             ]);
+
+            // Set default status if not provided
+            if (!isset($validated['status'])) {
+                $validated['status'] = 'active';
+            }
 
             $kiosk = Kiosk::create($validated);
             $kiosk->load('assignedTo');
@@ -70,6 +70,12 @@ class KioskController extends Controller
                 'message' => 'Kiosk created successfully!',
                 'data' => $data
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -114,13 +120,8 @@ class KioskController extends Controller
             $validated = $request->validate([
                 'kiosk_code' => 'sometimes|string|max:50|unique:kiosks,kiosk_code,' . $id,
                 'location' => 'sometimes|string|max:255',
-                'status' => 'in:active,inactive,maintenance',
-                'serial_number' => 'sometimes|string|unique:kiosks,serial_number,' . $id,
-                'mac_address' => 'nullable|string',
-                'ip_address' => 'nullable|ip',
-                'software_version' => 'nullable|string',
+                'status' => 'sometimes|string|in:active,inactive,maintenance',
                 'assigned_to' => 'nullable|exists:lgu_users,id',
-                'notes' => 'nullable|string',
             ]);
 
             $kiosk->update($validated);
@@ -134,6 +135,12 @@ class KioskController extends Controller
                 'message' => 'Kiosk updated successfully!',
                 'data' => $data
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
