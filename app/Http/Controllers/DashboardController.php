@@ -8,6 +8,7 @@ use App\Models\KioskUser;
 use App\Models\RecyclingLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -27,9 +28,13 @@ class DashboardController extends Controller
             $activeSessions = ChargingSession::where('status', 'active')->count();
             $totalEnergyKwh = ChargingSession::whereIn('status', ['completed', 'cancelled'])->sum('energy_wh') / 1000;
 
-            // Recycling Stats
-            $totalRecyclingKg = RecyclingLog::sum('weight_kg');
-            $totalRecyclingDeposits = RecyclingLog::count();
+            // Recycling Stats (check if table exists)
+            $totalRecyclingKg = 0;
+            $totalRecyclingDeposits = 0;
+            if (Schema::hasTable('recycling_logs')) {
+                $totalRecyclingKg = RecyclingLog::sum('weight_kg');
+                $totalRecyclingDeposits = RecyclingLog::count();
+            }
 
             // Points Stats
             $totalPointsInCirculation = KioskUser::sum('points_balance');
@@ -62,7 +67,7 @@ class DashboardController extends Controller
             Log::error('Dashboard overview error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch dashboard overview'
+                'message' => 'Failed to fetch dashboard overview: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -111,6 +116,14 @@ class DashboardController extends Controller
     public function getRecentRecycling(Request $request)
     {
         try {
+            // Check if table exists
+            if (!Schema::hasTable('recycling_logs')) {
+                return response()->json([
+                    'success' => true,
+                    'data' => []
+                ]);
+            }
+
             $limit = min($request->get('limit', 10), 30);
 
             $deposits = RecyclingLog::with(['user:id,name,first_name,last_name', 'kiosk:id,kiosk_code,location'])
@@ -137,7 +150,7 @@ class DashboardController extends Controller
             Log::error('Recent recycling error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch recent recycling'
+                'message' => 'Failed to fetch recent recycling: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -148,13 +161,20 @@ class DashboardController extends Controller
     public function getChartData()
     {
         try {
-            $days = collect(range(6, 0))->map(function ($daysAgo) {
+            $hasRecyclingTable = Schema::hasTable('recycling_logs');
+
+            $days = collect(range(6, 0))->map(function ($daysAgo) use ($hasRecyclingTable) {
                 $date = now()->subDays($daysAgo);
                 
+                $recyclingKg = 0;
+                if ($hasRecyclingTable) {
+                    $recyclingKg = RecyclingLog::whereDate('created_at', $date)->sum('weight_kg');
+                }
+
                 return [
                     'date' => $date->format('M d'),
                     'sessions' => ChargingSession::whereDate('created_at', $date)->count(),
-                    'recycling_kg' => round(RecyclingLog::whereDate('created_at', $date)->sum('weight_kg'), 2),
+                    'recycling_kg' => round($recyclingKg, 2),
                 ];
             });
 
@@ -166,7 +186,7 @@ class DashboardController extends Controller
             Log::error('Chart data error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch chart data'
+                'message' => 'Failed to fetch chart data: ' . $e->getMessage()
             ], 500);
         }
     }
