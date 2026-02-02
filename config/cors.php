@@ -16,10 +16,10 @@ return [
     */
 
 
-    'paths' => ['api', 'api/*', 'sanctum/csrf-cookie', 'auth/*', 'login', 'register', 'charging/*', 'patron/*', 'kiosks/*'],    
+    'paths' => ['api', 'api/*', 'sanctum/csrf-cookie', 'auth/*', 'login', 'register', 'charging/*', 'patron/*', 'kiosks/*'],
     'allowed_methods' => ['*'],
-    
-    'allowed_origins' => env('CORS_ALLOWED_ORIGINS') 
+
+    'allowed_origins' => env('CORS_ALLOWED_ORIGINS')
         ? explode(',', str_replace(' ', '', env('CORS_ALLOWED_ORIGINS')))
         : [
             // Production domains
@@ -36,23 +36,24 @@ return [
             'http://127.0.0.1:8080',
             'http://127.0.0.1:5173',
             'capacitor://localhost',
+            'juan-charge.vercel.app/',
             'ionic://localhost',
             'http://localhost',
-            'https://localhost',  
+            'https://localhost',
         ],
-    
+
     'allowed_origins_patterns' => [
         // Match all Vercel deployment URLs (production, preview, and branch deployments)
         '/^https:\/\/juan-charge-client-1ang.*\.vercel\.app$/',
         '/^https:\/\/.*-mark-acedos-projects\.vercel\.app$/',
     ],
-    
+
     'allowed_headers' => ['*'],
-    
+
     'exposed_headers' => ['Authorization'],
-    
+
     'max_age' => 86400,
-    
+
     'supports_credentials' => true,
 
 ];
