@@ -15,19 +15,19 @@ class KioskController extends Controller
     {
         try {
             $kiosks = Kiosk::with('assignedTo')->get();
-            
-            $transformedKiosks = $kiosks->map(function($kiosk) {
+
+            $transformedKiosks = $kiosks->map(function ($kiosk) {
                 $data = $kiosk->toArray();
-                
+
                 // Safely add the user name
                 $data['assigned_user_name'] = null;
                 if ($kiosk->assignedTo) {
                     $data['assigned_user_name'] = $kiosk->assignedTo->name;
                 }
-                
+
                 return $data;
             });
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $transformedKiosks
@@ -61,10 +61,10 @@ class KioskController extends Controller
 
             $kiosk = Kiosk::create($validated);
             $kiosk->load('assignedTo');
-            
+
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Kiosk created successfully!',
@@ -92,10 +92,10 @@ class KioskController extends Controller
     {
         try {
             $kiosk = Kiosk::with('assignedTo')->findOrFail($id);
-            
+
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $data
@@ -126,10 +126,10 @@ class KioskController extends Controller
 
             $kiosk->update($validated);
             $kiosk->load('assignedTo');
-            
+
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Kiosk updated successfully!',
@@ -167,6 +167,45 @@ class KioskController extends Controller
                 'success' => false,
                 'message' => 'Failed to delete kiosk: ' . $e->getMessage(),
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * Update kiosk heartbeat and status.
+     */
+    public function heartbeat(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'kiosk_code' => 'required|string|exists:kiosks,kiosk_code',
+                'status' => 'required|string',
+                'ports' => 'nullable|array',
+            ]);
+
+            $kiosk = Kiosk::where('kiosk_code', $validated['kiosk_code'])->firstOrFail();
+
+            $kiosk->update([
+                'status' => $validated['status'] === 'online' ? 'active' : 'maintenance', // Map 'online' to 'active' or keep as is if enum supports it
+                'last_active' => now(),
+                'ip_address' => $request->ip(),
+                'details' => ['ports' => $request->ports ?? []],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Heartbeat received'
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Heartbeat failed: ' . $e->getMessage()
             ], 500);
         }
     }

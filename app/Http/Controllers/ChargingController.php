@@ -311,7 +311,7 @@ class ChargingController extends Controller
                 $session->status = 'completed';
                 $session->completed_at = $session->end_time;
                 $session->save();
-                
+
                 return response()->json([
                     'success' => true,
                     'data' => [
@@ -860,6 +860,96 @@ class ChargingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to process recycling deposit: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * Redeem points from Kiosk (Server-side validation)
+     */
+    public function redeemFromKiosk(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'kiosk_code' => 'required|string|exists:kiosks,kiosk_code',
+                'user_id' => 'required|string', // User ID or UUID
+                'points_to_redeem' => 'required|integer|min:1',
+                'timestamp' => 'required|integer',
+                'signature' => 'required|string',
+            ]);
+
+            // 1. Verify Signature
+            $secret = env('KIOSK_SECRET_KEY', 'default_secret_key');
+            // Payload: kiosk_code + user_id + points_to_redeem + timestamp
+            $payload = $validated['kiosk_code'] . $validated['user_id'] . $validated['points_to_redeem'] . $validated['timestamp'];
+            $expectedSignature = hash_hmac('sha256', $payload, $secret);
+
+            if (!hash_equals($expectedSignature, $validated['signature'])) {
+                return response()->json(['success' => false, 'message' => 'Invalid signature'], 401);
+            }
+
+            // 2. Find User
+            // Assuming user_id is the primary key ID or a specific UUID field.
+            // If it's a UUID from QR, adjust accordingly. Here assuming ID for simplicity as per request.
+            // If user_id is "user_123_abc", we might need to strip prefix or look up by a different field.
+            // Let's assume Kiosk sends the actual database ID or a consistent UUID.
+            $userId = $validated['user_id'];
+            if (str_starts_with($userId, 'user_')) {
+                $userId = str_replace('user_', '', $userId);
+            }
+
+            $user = \App\Models\User::find($userId);
+            // Fallback: search by email or username if needed, but ID is safest. 
+
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not found'], 404);
+            }
+
+            // 3. Check Balance
+            if ($user->points_balance < $validated['points_to_redeem']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient funds',
+                    'current_balance' => $user->points_balance
+                ], 400);
+            }
+
+            // 4. Deduct Points & Transaction
+            DB::beginTransaction();
+            try {
+                $user->points_balance -= $validated['points_to_redeem'];
+                $user->save();
+
+                $txn = PointsTransaction::create([
+                    'user_id' => $user->id,
+                    'transaction_type' => 'redeemed',
+                    'type' => 'charge',
+                    'title' => 'Kiosk Redemption',
+                    'points' => -$validated['points_to_redeem'],
+                    'balance_after' => $user->points_balance,
+                    'status' => 'completed',
+                    'reference_type' => 'kiosk_redemption',
+                    'reference_id' => $validated['timestamp'], // Use timestamp or generate UUID
+                    'description' => "Redeemed at Kiosk " . $validated['kiosk_code'],
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'new_balance' => $user->points_balance,
+                    'transaction_id' => $txn->id, // Or UUID if available
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Kiosk Redeem Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Redemption failed: ' . $e->getMessage()
             ], 500);
         }
     }

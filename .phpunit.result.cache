@@ -1,0 +1,1 @@
+{"version":1,"defects":{"Tests\\Feature\\KioskIntegrationTest::test_kiosk_heartbeat":3,"Tests\\Feature\\KioskIntegrationTest::test_kiosk_redemption_signed":4},"times":{"Tests\\Feature\\KioskIntegrationTest::test_kiosk_heartbeat":0.123,"Tests\\Feature\\KioskIntegrationTest::test_kiosk_redemption_signed":0.04}}

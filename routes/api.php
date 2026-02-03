@@ -21,6 +21,8 @@ Route::post('/auth/register', [KioskUserController::class, 'register']);
 // Kiosk Machine Routes (Public/Machine Auth)
 Route::post('/kiosk/vouchers', [PointVoucherController::class, 'store']);
 Route::post('/kiosk/vouchers/sync', [PointVoucherController::class, 'sync']); // Offline Sync Job
+Route::post('/kiosk/redeem', [ChargingController::class, 'redeemFromKiosk']);
+Route::post('/kiosk/heartbeat', [KioskController::class, 'heartbeat']);
 
 // Mobile-specific auth routes (for patron/kiosk users)
 Route::middleware(['mobile-api'])->group(function () {
@@ -90,6 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
     Route::post('/mobile/vouchers/claim', [PointVoucherController::class, 'claim']);
     Route::post('/mobile/vouchers/claim-signed', [PointVoucherController::class, 'claimSigned']); // Offline Code Claim
+    Route::post('/patron/points/claim-signed', [PointVoucherController::class, 'claimSigned']); // Alias for Mobile App compatibility
 
     // Recycling Routes
     Route::post('/patron/recycling/deposit', [ChargingController::class, 'depositRecyclables']);
