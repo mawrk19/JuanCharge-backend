@@ -88,4 +88,57 @@ class KioskIntegrationTest extends TestCase
             'points' => -10
         ]);
     }
+
+    public function test_mobile_claim_signed()
+    {
+        $kiosk = Kiosk::firstOrCreate(
+            ['kiosk_code' => 'TEST-KIOSK-001'],
+            ['location' => 'Test Lab', 'serial_number' => 'SN-TEST-001']
+        );
+
+        // Create KioskUser
+        $user = \App\Models\KioskUser::create([
+            'first_name' => 'Claim',
+            'last_name' => 'User',
+            'name' => 'Claim User',
+            'email' => 'claim_user_' . uniqid() . '@example.com',
+            'password' => bcrypt('password'),
+            'points_balance' => 0,
+            'points_total' => 0
+        ]);
+
+        $txnId = \Illuminate\Support\Str::uuid()->toString();
+        $points = 50;
+        $timestamp = now()->timestamp * 1000;
+        $secret = env('KIOSK_SECRET_KEY', 'default_secret_key');
+
+        $payload = $kiosk->kiosk_code . $txnId . $points . $timestamp;
+        $signature = hash_hmac('sha256', $payload, $secret);
+
+        $response = $this->actingAs($user, 'sanctum') // Mock Auth
+            ->postJson('/api/patron/points/claim-signed', [
+                'kiosk_code' => $kiosk->kiosk_code,
+                'txn_id' => $txnId,
+                'points' => $points,
+                'timestamp' => $timestamp,
+                'signature' => $signature,
+                'action' => 'store_points', // Simulate extra fields
+                'amount' => $points
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['success' => true]);
+
+        // Check user balance
+        $user->refresh();
+        $this->assertEquals(50, $user->points_balance);
+
+        // Check PointVoucher created
+        $this->assertDatabaseHas('point_vouchers', [
+            'code' => $txnId,
+            'points' => 50,
+            'status' => 'claimed',
+            'claimed_by' => $user->id
+        ]);
+    }
 }
