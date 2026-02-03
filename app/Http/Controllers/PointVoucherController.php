@@ -233,6 +233,8 @@ class PointVoucherController extends Controller
             'points' => 'required|integer',
             'timestamp' => 'required|integer',
             'signature' => 'required|string',
+            'nonce' => 'nullable|string', // Optional extra field
+            'token' => 'nullable|string', // Optional extra field
         ]);
 
         $user = auth()->user();
@@ -241,7 +243,10 @@ class PointVoucherController extends Controller
 
         // Verify Signature
         $secret = env('KIOSK_SECRET_KEY', 'default_secret_key');
+        // Payload: kiosk_code + txn_id + points + timestamp
         $payload = $request->kiosk_code . $request->txn_id . $request->points . $request->timestamp;
+
+        // If nonce is present, it might be part of signature if specified, but for now we keep it simple
         $expectedSignature = hash_hmac('sha256', $payload, $secret);
 
         if (!hash_equals($expectedSignature, $request->signature)) {
@@ -250,7 +255,7 @@ class PointVoucherController extends Controller
 
         DB::beginTransaction();
         try {
-            // Check if voucher exists
+            // Check if voucher exists (Idempotency check via txn_id)
             $voucher = PointVoucher::where('code', $request->txn_id)->lockForUpdate()->first();
 
             if (!$voucher) {
@@ -262,13 +267,21 @@ class PointVoucherController extends Controller
                     'kiosk_id' => $kiosk->id,
                     'status' => 'pending',
                     'expires_at' => Carbon::createFromTimestampMs($request->timestamp)->addHours(24),
-                    'metadata' => ['source' => 'online_claim_signed', 'timestamp' => $request->timestamp],
+                    'metadata' => [
+                        'source' => 'online_claim_signed',
+                        'timestamp' => $request->timestamp,
+                        'nonce' => $request->nonce
+                    ],
                 ]);
             }
 
             if ($voucher->status !== 'pending') {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Voucher already claimed/expired'], 400);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Voucher already claimed or processed',
+                    'new_balance' => $user->points_balance // Include current balance even on error
+                ], 400);
             }
 
             // Mark claimed and award points
@@ -298,6 +311,7 @@ class PointVoucherController extends Controller
 
             return response()->json([
                 'success' => true,
+                'new_balance' => $user->points_balance, // Exact format from prompt
                 'data' => [
                     'points_earned' => $voucher->points,
                     'new_balance' => $user->points_balance

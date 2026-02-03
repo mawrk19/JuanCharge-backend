@@ -9,6 +9,7 @@ use App\Http\Controllers\MobileAuthController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PointVoucherController;
+use App\Http\Controllers\PortActivationController;
 
 // Public routes
 Route::get('/', function () {
@@ -103,6 +104,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
 
     // Admin Dashboard Routes
+    // Port activation (Seamless activation)
+    Route::post('/charging/activate', [PortActivationController::class, 'activate']);
+    Route::post('/ports/activate', [PortActivationController::class, 'activate']); // Keep as alias
+
+    Route::prefix('points')->group(function () {
+        Route::get('/overview', [DashboardController::class, 'getOverview']);
+        Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
+        Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
+        Route::get('/chart', [DashboardController::class, 'getChartData']);
+    });
     Route::prefix('dashboard')->group(function () {
         Route::get('/overview', [DashboardController::class, 'getOverview']);
         Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);

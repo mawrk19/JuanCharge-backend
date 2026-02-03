@@ -184,8 +184,29 @@ class KioskController extends Controller
 
             $kiosk = Kiosk::where('kiosk_code', $validated['kiosk_code'])->firstOrFail();
 
+            // Fetch pending activations
+            $pendingActivations = \App\Models\PortActivation::where('kiosk_id', $kiosk->id)
+                ->where('status', 'pending')
+                ->get();
+
+            $activationData = $pendingActivations->map(function ($act) {
+                return [
+                    'id' => $act->id,
+                    'port' => $act->port_number,
+                    'points' => $act->points,
+                    'duration' => $act->duration_seconds,
+                    'timestamp' => $act->created_at->timestamp,
+                ];
+            });
+
+            // Mark as sent
+            if ($pendingActivations->count() > 0) {
+                \App\Models\PortActivation::whereIn('id', $pendingActivations->pluck('id'))
+                    ->update(['status' => 'sent']);
+            }
+
             $kiosk->update([
-                'status' => $validated['status'] === 'online' ? 'active' : 'maintenance', // Map 'online' to 'active' or keep as is if enum supports it
+                'status' => $validated['status'] === 'online' ? 'active' : 'maintenance',
                 'last_active' => now(),
                 'ip_address' => $request->ip(),
                 'details' => ['ports' => $request->ports ?? []],
@@ -193,7 +214,8 @@ class KioskController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Heartbeat received'
+                'message' => 'Heartbeat received',
+                'pending_activations' => $activationData
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
