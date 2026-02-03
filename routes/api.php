@@ -121,6 +121,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/overview', [DashboardController::class, 'getOverview']);
         Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
         Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
-        Route::get('/chart', [DashboardController::class, 'getChartData']);
     });
+});
+
+Route::fallback(function () {
+    return response()->json([
+        'success' => false,
+        'message' => 'Route not found: ' . request()->path(),
+        'url' => request()->fullUrl(),
+        'method' => request()->method()
+    ], 404);
 });

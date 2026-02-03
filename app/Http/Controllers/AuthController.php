@@ -28,7 +28,7 @@ class AuthController extends Controller
         // Try to find user in admin users table first
         $user = User::where('email', $credentials['email'])->first();
         $userType = 'admin';
-        
+
         // If not found, check LGU users table
         if (!$user) {
             $user = LguUser::where('email', $credentials['email'])->first();
@@ -78,14 +78,6 @@ class AuthController extends Controller
         }
 
         return response()->json($response);
-        if (!$token = auth()->attempt($credentials)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid credentials'
-            ], 401);
-        }
-
-        return $this->respondWithToken($token);
     }
 
     /**
@@ -96,7 +88,7 @@ class AuthController extends Controller
     public function me()
     {
         $user = auth()->user();
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -118,7 +110,7 @@ class AuthController extends Controller
     public function validateToken()
     {
         $user = auth()->user();
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -359,7 +351,7 @@ class AuthController extends Controller
 
             // Generate unique token
             $token = bin2hex(random_bytes(32));
-            
+
             // Create reset token record (expires in 1 hour)
             \App\Models\PasswordResetToken::create([
                 'email' => $email,
@@ -507,21 +499,21 @@ class AuthController extends Controller
         $lowercase = 'abcdefghijklmnopqrstuvwxyz';
         $numbers = '0123456789';
         $special = '!@#$%';
-        
+
         $password = '';
-        
+
         // Ensure at least one of each type
         $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
         $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
         $password .= $numbers[random_int(0, strlen($numbers) - 1)];
         $password .= $special[random_int(0, strlen($special) - 1)];
-        
+
         // Fill the rest randomly (total length 10)
         $allChars = $uppercase . $lowercase . $numbers . $special;
         for ($i = 4; $i < 10; $i++) {
             $password .= $allChars[random_int(0, strlen($allChars) - 1)];
         }
-        
+
         // Shuffle the password
         return str_shuffle($password);
     }
