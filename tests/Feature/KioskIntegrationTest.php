@@ -50,9 +50,16 @@ class KioskIntegrationTest extends TestCase
             ['location' => 'Test Lab', 'serial_number' => 'SN-TEST-001']
         );
 
-        $user = User::factory()->create();
-        $user->points_balance = 100;
-        $user->save();
+        // Create KioskUser manually since Factory might not exist
+        $user = \App\Models\KioskUser::create([
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'name' => 'Test User',
+            'email' => 'test_kiosk_user_' . uniqid() . '@example.com',
+            'password' => bcrypt('password'),
+            'points_balance' => 100,
+            'points_total' => 100
+        ]);
 
         $pointsToRedeem = 10;
         $timestamp = now()->timestamp * 1000; // MS

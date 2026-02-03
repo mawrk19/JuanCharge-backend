@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChargingSession;
-use App\Models\PointsTransaction;
 use App\Models\KioskUser;
+use App\Models\PointsTransaction;
 use App\Models\RecyclingLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -897,7 +897,7 @@ class ChargingController extends Controller
                 $userId = str_replace('user_', '', $userId);
             }
 
-            $user = \App\Models\User::find($userId);
+            $user = \App\Models\KioskUser::find($userId);
             // Fallback: search by email or username if needed, but ID is safest. 
 
             if (!$user) {
