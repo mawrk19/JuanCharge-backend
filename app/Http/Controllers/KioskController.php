@@ -91,7 +91,11 @@ class KioskController extends Controller
     public function show($id)
     {
         try {
-            $kiosk = Kiosk::with('assignedTo')->findOrFail($id);
+            // Try matching by primary ID or kiosk_code
+            $kiosk = Kiosk::with('assignedTo')
+                ->where('id', $id)
+                ->orWhere('kiosk_code', $id)
+                ->firstOrFail();
 
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
