@@ -65,6 +65,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
     Route::patch('/lgu-users/{id}/disable', [LguUserController::class, 'disableUser']);
 
+    // LGUs CRUD
+    Route::apiResource('lgus', \App\Http\Controllers\LguController::class);
+
     // Kiosks CRUD
     Route::apiResource('kiosks', KioskController::class);
 

@@ -27,6 +27,7 @@ class LguUser extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
+        'lgu_id',
         'name',
         'first_name',
         'last_name',
@@ -58,12 +59,17 @@ class LguUser extends Authenticatable
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-    
- public function kiosks()
+
+    public function lgu()
+    {
+        return $this->belongsTo(Lgu::class, 'lgu_id');
+    }
+
+    public function kiosks()
     {
         return $this->hasMany(Kiosk::class, 'assigned_to');
     }
-    
+
     /**
      * Boot the model and register the creating event.
      */
@@ -109,7 +115,7 @@ class LguUser extends Authenticatable
     {
         // Clean and lowercase first name
         $cleanFirstName = strtolower(trim($firstName));
-        
+
         // Format birth date as MMDDYYYY
         $date = $birthDate instanceof \Carbon\Carbon ? $birthDate : \Carbon\Carbon::parse($birthDate);
         $dateString = $date->format('mdY'); // e.g., "05151990" for May 15, 1990
@@ -132,7 +138,7 @@ class LguUser extends Authenticatable
     {
         // Clean and lowercase first name
         $cleanFirstName = strtolower(trim($firstName));
-        
+
         // Format birth date as MMDDYYYY
         $date = $birthDate instanceof \Carbon\Carbon ? $birthDate : \Carbon\Carbon::parse($birthDate);
         $dateString = $date->format('mdY');
@@ -140,5 +146,5 @@ class LguUser extends Authenticatable
         return $cleanFirstName . $dateString; // e.g., "john05151990"
     }
 
-    
+
 }

@@ -12,6 +12,7 @@ class Kiosk extends Model
     protected $table = 'kiosks';
 
     protected $fillable = [
+        'lgu_id',
         'kiosk_code',
         'location',
         'status',
@@ -27,6 +28,11 @@ class Kiosk extends Model
         'registered_at' => 'datetime',
         'details' => 'array',
     ];
+
+    public function lgu()
+    {
+        return $this->belongsTo(Lgu::class, 'lgu_id');
+    }
 
     /**
      * Get the LGU user assigned to this kiosk

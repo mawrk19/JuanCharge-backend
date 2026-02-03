@@ -27,4 +27,14 @@ class Lgu extends Model
     protected $casts = [
         'id' => 'integer',
     ];
+
+    public function users()
+    {
+        return $this->hasMany(LguUser::class, 'lgu_id');
+    }
+
+    public function kiosks()
+    {
+        return $this->hasMany(Kiosk::class, 'lgu_id');
+    }
 }

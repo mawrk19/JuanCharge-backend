@@ -14,7 +14,7 @@ class KioskController extends Controller
     public function index()
     {
         try {
-            $kiosks = Kiosk::with('assignedTo')->get();
+            $kiosks = Kiosk::with(['assignedTo', 'lgu'])->get();
 
             $transformedKiosks = $kiosks->map(function ($kiosk) {
                 $data = $kiosk->toArray();
@@ -24,6 +24,8 @@ class KioskController extends Controller
                 if ($kiosk->assignedTo) {
                     $data['assigned_user_name'] = $kiosk->assignedTo->name;
                 }
+
+                $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
                 return $data;
             });
@@ -52,6 +54,7 @@ class KioskController extends Controller
                 'location' => 'required|string|max:255',
                 'status' => 'nullable|string|in:active,inactive,maintenance',
                 'assigned_to' => 'nullable|exists:lgu_users,id',
+                'lgu_id' => 'nullable|exists:lgus,id',
             ]);
 
             // Set default status if not provided
@@ -60,10 +63,11 @@ class KioskController extends Controller
             }
 
             $kiosk = Kiosk::create($validated);
-            $kiosk->load('assignedTo');
+            $kiosk->load(['assignedTo', 'lgu']);
 
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
+            $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
             return response()->json([
                 'success' => true,
@@ -92,13 +96,14 @@ class KioskController extends Controller
     {
         try {
             // Try matching by primary ID or kiosk_code
-            $kiosk = Kiosk::with('assignedTo')
+            $kiosk = Kiosk::with(['assignedTo', 'lgu'])
                 ->where('id', $id)
                 ->orWhere('kiosk_code', $id)
                 ->firstOrFail();
 
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
+            $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
             return response()->json([
                 'success' => true,
@@ -126,13 +131,15 @@ class KioskController extends Controller
                 'location' => 'sometimes|string|max:255',
                 'status' => 'sometimes|string|in:active,inactive,maintenance',
                 'assigned_to' => 'nullable|exists:lgu_users,id',
+                'lgu_id' => 'nullable|exists:lgus,id',
             ]);
 
             $kiosk->update($validated);
-            $kiosk->load('assignedTo');
+            $kiosk->load(['assignedTo', 'lgu']);
 
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
+            $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
             return response()->json([
                 'success' => true,
