@@ -8,16 +8,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  # CLEAR ALL OLD CACHE FIRST
-  "php artisan optimize:clear",
-
-  # Now rebuild everything cleanly
-  "php artisan migrate --force",
-  "php artisan config:cache",
-  "php artisan route:cache",
-  "php artisan view:cache",
-  "php artisan db:seed --class=TestMobileUserSeeder --force"
+  "php artisan optimize:clear"
 ]
 
 [start]
-cmd = "php -S 0.0.0.0:$PORT -t public"
+cmd = "php artisan migrate --force && php artisan config:cache && php artisan route:cache && php -S 0.0.0.0:$PORT -t public"
