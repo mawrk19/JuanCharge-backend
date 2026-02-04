@@ -143,6 +143,33 @@ class RedemptionHandshakeTest extends TestCase
         ]);
     }
 
+    public function test_kiosk_redemption_with_legacy_payload()
+    {
+        // Legacy payload has kiosk_user and NO port_number
+        // We'll mock the signature as well
+        $secret = env('KIOSK_SECRET_KEY', 'default_secret_key');
+        $timestamp = time();
+        $payload = $this->kiosk->kiosk_code . $this->user->id . 50 . $timestamp;
+        $signature = hash_hmac('sha256', $payload, $secret);
+
+        $response = $this->postJson('/api/kiosk/redeem', [
+            'kiosk_code' => $this->kiosk->kiosk_code,
+            'kiosk_user' => (string) $this->user->id,
+            'points_to_redeem' => 50,
+            'timestamp' => $timestamp,
+            'signature' => $signature
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('points_transactions', [
+            'user_id' => $this->user->id,
+            'transaction_type' => 'redeemed',
+            'points' => -50
+        ]);
+    }
+
     public function test_port_activation_enforces_handshake()
     {
         // Test Port Activation Controller also has checks

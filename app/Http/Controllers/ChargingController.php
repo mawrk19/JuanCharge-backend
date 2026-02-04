@@ -896,10 +896,15 @@ class ChargingController extends Controller
     public function redeemFromKiosk(Request $request)
     {
         try {
+            // Alias kiosk_user to user_id for backward compatibility
+            if ($request->has('kiosk_user') && !$request->has('user_id')) {
+                $request->merge(['user_id' => $request->kiosk_user]);
+            }
+
             $validated = $request->validate([
                 'kiosk_code' => 'required|string|exists:kiosks,kiosk_code',
-                'port_number' => 'required|integer|min:1|max:3', // Added for handshake
-                'user_id' => 'required|string', // User ID or UUID
+                'port_number' => 'nullable|integer|min:1|max:3', // Made optional for machine redemption
+                'user_id' => 'required|string',
                 'points_to_redeem' => 'required|integer|min:1',
                 'timestamp' => 'required|integer',
                 'signature' => 'required|string',
@@ -929,22 +934,24 @@ class ChargingController extends Controller
             }
 
             // 2. Port Status Check
-            $portNumber = $validated['port_number'];
-            $ports = $kiosk->details['ports'] ?? [];
-            $portStatus = 'unknown';
-            foreach ($ports as $port) {
-                if (isset($port['port']) && $port['port'] == $portNumber) {
-                    $portStatus = $port['status'] ?? 'unknown';
-                    break;
+            $portNumber = $validated['port_number'] ?? null;
+            if ($portNumber) {
+                $ports = $kiosk->details['ports'] ?? [];
+                $portStatus = 'unknown';
+                foreach ($ports as $port) {
+                    if (isset($port['port']) && $port['port'] == $portNumber) {
+                        $portStatus = $port['status'] ?? 'unknown';
+                        break;
+                    }
                 }
-            }
 
-            if ($portStatus === 'active' || $portStatus === 'busy') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Port Busy',
-                    'error_code' => 'PORT_BUSY'
-                ], 400);
+                if ($portStatus === 'active' || $portStatus === 'busy') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Port Busy',
+                        'error_code' => 'PORT_BUSY'
+                    ], 400);
+                }
             }
             // --- END HANDSHAKE VALIDATION ---
 
@@ -1002,6 +1009,12 @@ class ChargingController extends Controller
                 throw $e;
             }
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Kiosk Redeem Error: ' . $e->getMessage());
             return response()->json([

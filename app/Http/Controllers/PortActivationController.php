@@ -80,7 +80,7 @@ class PortActivationController extends Controller
                 'transaction_type' => 'redeemed',
                 'type' => 'charge',
                 'title' => 'Port Activation',
-                'points' => $pointsToDeduct,
+                'points' => -$pointsToDeduct, // Fixed: Should be negative for redemption
                 'balance_after' => $user->points_balance,
                 'status' => 'completed',
                 'description' => "Activated port {$portNumber} on Kiosk {$kioskCode}",
@@ -109,6 +109,13 @@ class PortActivationController extends Controller
                 ]
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
