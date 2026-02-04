@@ -24,6 +24,7 @@ Route::post('/kiosk/vouchers', [PointVoucherController::class, 'store']);
 Route::post('/kiosk/vouchers/sync', [PointVoucherController::class, 'sync']); // Offline Sync Job
 Route::post('/kiosk/redeem', [ChargingController::class, 'redeemFromKiosk']);
 Route::post('/kiosk/heartbeat', [KioskController::class, 'heartbeat']);
+Route::get('/kiosk/status/{kiosk_code}', [KioskController::class, 'status']);
 
 // Mobile-specific auth routes (for patron/kiosk users)
 Route::middleware(['mobile-api'])->group(function () {

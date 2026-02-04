@@ -41,6 +41,35 @@ class PortActivationController extends Controller
         try {
             $kiosk = Kiosk::where('kiosk_code', $kioskCode)->firstOrFail();
 
+            // --- START HANDSHAKE VALIDATION ---
+            // 1. Connectivity Check
+            if (!$kiosk->last_active || $kiosk->last_active->diffInSeconds(now()) > 30) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kiosk Offline',
+                    'error_code' => 'KIOSK_OFFLINE'
+                ], 403);
+            }
+
+            // 2. Port Status Check
+            $ports = $kiosk->details['ports'] ?? [];
+            $portStatus = 'unknown';
+            foreach ($ports as $port) {
+                if (isset($port['port']) && $port['port'] == $portNumber) {
+                    $portStatus = $port['status'] ?? 'unknown';
+                    break;
+                }
+            }
+
+            if ($portStatus === 'active' || $portStatus === 'busy') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Port Busy',
+                    'error_code' => 'PORT_BUSY'
+                ], 400);
+            }
+            // --- END HANDSHAKE VALIDATION ---
+
             // 1. Deduct points
             $user->points_balance -= $pointsToDeduct;
             $user->save();

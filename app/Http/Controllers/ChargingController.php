@@ -36,33 +36,59 @@ class ChargingController extends Controller
 
             $validated = $request->validate([
                 'points' => 'required|integer|min:' . self::MIN_POINTS . '|max:' . self::MAX_POINTS_PER_SESSION,
-                'kiosk_id' => 'nullable|string', // Changed from integer/exists to string to support MAC
-                'session_id' => 'nullable|string', // For extending existing sessions
+                'kiosk_code' => 'required|string', // Changed from kiosk_id to kiosk_code
+                'port_number' => 'required|integer|min:1|max:3',
+                'session_id' => 'nullable|string',
             ]);
 
             $pointsToRedeem = $validated['points'];
-            $kioskIdentifier = $validated['kiosk_id'] ?? null;
+            $kioskIdentifier = $validated['kiosk_code'];
             $kioskId = null;
 
-            if ($kioskIdentifier) {
-                if (is_numeric($kioskIdentifier)) {
-                    $kioskId = (int) $kioskIdentifier;
-                } else if (str_starts_with($kioskIdentifier, 'kiosk-')) {
-                    $macAddress = str_replace('kiosk-', '', $kioskIdentifier);
-                    $kiosk = \App\Models\Kiosk::where('mac_address', $macAddress)->first();
-                    if ($kiosk) {
-                        $kioskId = $kiosk->id;
-                    } else {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Kiosk not found with the provided identifier'
-                        ], 404);
-                    }
-                } else {
-                    // Try direct ID if it's just a number string but not pure numeric (though is_numeric handles most)
-                    $kioskId = (int) $kioskIdentifier;
+            $kiosk = \App\Models\Kiosk::where('kiosk_code', $kioskIdentifier)
+                ->orWhere('id', is_numeric($kioskIdentifier) ? $kioskIdentifier : -1)
+                ->orWhere('mac_address', str_replace('kiosk-', '', $kioskIdentifier))
+                ->first();
+
+            if (!$kiosk) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kiosk not found'
+                ], 404);
+            }
+
+            $kioskId = $kiosk->id;
+
+            // --- START HANDSHAKE VALIDATION ---
+            // 1. Connectivity Check (last_active < 30 seconds)
+            $lastActive = $kiosk->last_active;
+            if (!$lastActive || $lastActive->diffInSeconds(now()) > 30) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kiosk Offline',
+                    'error_code' => 'KIOSK_OFFLINE'
+                ], 403);
+            }
+
+            // 2. Port Status Check
+            $portNumber = $validated['port_number'];
+            $ports = $kiosk->details['ports'] ?? [];
+            $portStatus = 'unknown';
+            foreach ($ports as $port) {
+                if (isset($port['port']) && $port['port'] == $portNumber) {
+                    $portStatus = $port['status'] ?? 'unknown';
+                    break;
                 }
             }
+
+            if ($portStatus === 'active' || $portStatus === 'busy') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Port Busy',
+                    'error_code' => 'PORT_BUSY'
+                ], 400);
+            }
+            // --- END HANDSHAKE VALIDATION ---
 
             $requestedSessionId = $validated['session_id'] ?? null;
 
@@ -213,6 +239,7 @@ class ChargingController extends Controller
                     'session_id' => $sessionId,
                     'user_id' => $user->id,
                     'kiosk_id' => $kioskId,
+                    'port_number' => $validated['port_number'],
                     'points_redeemed' => $pointsToRedeem,
                     'energy_wh' => $energyWh,
                     'duration_minutes' => $durationMinutes,
@@ -871,6 +898,7 @@ class ChargingController extends Controller
         try {
             $validated = $request->validate([
                 'kiosk_code' => 'required|string|exists:kiosks,kiosk_code',
+                'port_number' => 'required|integer|min:1|max:3', // Added for handshake
                 'user_id' => 'required|string', // User ID or UUID
                 'points_to_redeem' => 'required|integer|min:1',
                 'timestamp' => 'required|integer',
@@ -887,11 +915,40 @@ class ChargingController extends Controller
                 return response()->json(['success' => false, 'message' => 'Invalid signature'], 401);
             }
 
-            // 2. Find User
-            // Assuming user_id is the primary key ID or a specific UUID field.
-            // If it's a UUID from QR, adjust accordingly. Here assuming ID for simplicity as per request.
-            // If user_id is "user_123_abc", we might need to strip prefix or look up by a different field.
-            // Let's assume Kiosk sends the actual database ID or a consistent UUID.
+            // 2. Find Kiosk and Check Status
+            $kiosk = \App\Models\Kiosk::where('kiosk_code', $validated['kiosk_code'])->firstOrFail();
+
+            // --- START HANDSHAKE VALIDATION ---
+            // 1. Connectivity Check
+            if (!$kiosk->last_active || $kiosk->last_active->diffInSeconds(now()) > 30) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kiosk Offline',
+                    'error_code' => 'KIOSK_OFFLINE'
+                ], 403);
+            }
+
+            // 2. Port Status Check
+            $portNumber = $validated['port_number'];
+            $ports = $kiosk->details['ports'] ?? [];
+            $portStatus = 'unknown';
+            foreach ($ports as $port) {
+                if (isset($port['port']) && $port['port'] == $portNumber) {
+                    $portStatus = $port['status'] ?? 'unknown';
+                    break;
+                }
+            }
+
+            if ($portStatus === 'active' || $portStatus === 'busy') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Port Busy',
+                    'error_code' => 'PORT_BUSY'
+                ], 400);
+            }
+            // --- END HANDSHAKE VALIDATION ---
+
+            // 3. Find User
             $userId = $validated['user_id'];
             if (str_starts_with($userId, 'user_')) {
                 $userId = str_replace('user_', '', $userId);

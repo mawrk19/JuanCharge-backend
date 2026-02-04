@@ -13,6 +13,7 @@ class ChargingSession extends Model
         'session_id',
         'user_id',
         'kiosk_id',
+        'port_number',
         'points_redeemed',
         'energy_wh',
         'duration_minutes',

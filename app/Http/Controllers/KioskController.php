@@ -235,11 +235,40 @@ class KioskController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
             ], 422);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Heartbeat failed: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Get real-time status and port availability for a kiosk.
+     */
+    public function status($kiosk_code)
+    {
+        try {
+            $kiosk = Kiosk::where('kiosk_code', $kiosk_code)->firstOrFail();
+
+            $isOnline = $kiosk->last_active && $kiosk->last_active->diffInSeconds(now()) <= 30;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'kiosk_code' => $kiosk->kiosk_code,
+                    'location' => $kiosk->location,
+                    'status' => $kiosk->status,
+                    'is_online' => $isOnline,
+                    'last_seen_seconds_ago' => $kiosk->last_active ? $kiosk->last_active->diffInSeconds(now()) : null,
+                    'ports' => $kiosk->details['ports'] ?? [],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kiosk not found'
+            ], 404);
         }
     }
 }
