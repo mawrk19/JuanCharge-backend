@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kiosk;
+use App\Models\KioskRecyclingLog;
 use Illuminate\Http\Request;
 use Exception;
 
@@ -191,6 +192,8 @@ class KioskController extends Controller
                 'kiosk_code' => 'required|string|exists:kiosks,kiosk_code',
                 'status' => 'required|string',
                 'ports' => 'nullable|array',
+                'recycling_stats' => 'nullable|array',
+                'timestamp' => 'nullable|numeric',
             ]);
 
             $kiosk = Kiosk::where('kiosk_code', $validated['kiosk_code'])->firstOrFail();
@@ -222,6 +225,24 @@ class KioskController extends Controller
                 'ip_address' => $request->ip(),
                 'details' => ['ports' => $request->ports ?? []],
             ]);
+
+            // Process recycling stats
+            if (!empty($validated['recycling_stats'])) {
+                $hwTimestamp = isset($validated['timestamp'])
+                    ? \Carbon\Carbon::createFromTimestampMs($validated['timestamp'])
+                    : now();
+
+                foreach ($validated['recycling_stats'] as $type => $count) {
+                    if ($count > 0) {
+                        KioskRecyclingLog::create([
+                            'kiosk_id' => $kiosk->id,
+                            'item_type' => $type,
+                            'count' => $count,
+                            'hardware_timestamp' => $hwTimestamp,
+                        ]);
+                    }
+                }
+            }
 
             return response()->json([
                 'success' => true,

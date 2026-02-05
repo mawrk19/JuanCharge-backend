@@ -123,6 +123,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
         Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
     });
+
+    // New Recycling Analytics for Hardware Stats
+    Route::get('/admin/analytics/recycling', [\App\Http\Controllers\Admin\RecyclingAnalyticsController::class, 'index']);
 });
 
 Route::fallback(function () {
