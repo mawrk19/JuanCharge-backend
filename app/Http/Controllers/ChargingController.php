@@ -691,39 +691,114 @@ class ChargingController extends Controller
     /**
      * Get Community Leaderboard
      */
-    public function getLeaderboard()
+    public function getLeaderboard(Request $request)
     {
         try {
             $user = auth()->user();
-
             if (!$user) {
                 return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
             }
 
-            // Get top 10 users ranked by total points earned
-            // Note: KioskUser needs to have points_total for this to be effective
-            $rankings = KioskUser::orderBy('points_total', 'desc')
-                ->limit(10)
-                ->get()
-                ->map(function ($u, $index) {
+            $period = $request->query('period', 'all'); // all, monthly, weekly
+            $startDate = null;
+
+            if ($period === 'monthly') {
+                $startDate = now()->startOfMonth();
+            } elseif ($period === 'weekly') {
+                $startDate = now()->startOfWeek();
+            }
+
+            // Base query for rankings
+            if ($startDate) {
+                // Get earnings from transactions in this period
+                $earnings = PointsTransaction::where('transaction_type', 'earned')
+                    ->where('created_at', '>=', $startDate)
+                    ->select('user_id', DB::raw('SUM(points) as period_points'))
+                    ->groupBy('user_id');
+
+                // Get weight from recycling logs in this period
+                $weights = RecyclingLog::where('created_at', '>=', $startDate)
+                    ->select('user_id', DB::raw('SUM(weight_kg) as period_weight'))
+                    ->groupBy('user_id');
+
+                // Combine rankings
+                $rankingsRaw = KioskUser::leftJoinSub($earnings, 'earnings', function ($join) {
+                    $join->on('kiosk_users.id', '=', 'earnings.user_id');
+                })
+                    ->leftJoinSub($weights, 'weights', function ($join) {
+                        $join->on('kiosk_users.id', '=', 'weights.user_id');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNotNull('earnings.period_points')
+                            ->orWhereNotNull('weights.period_weight');
+                    })
+                    ->select('kiosk_users.*', 'earnings.period_points', 'weights.period_weight')
+                    ->orderBy('earnings.period_points', 'desc')
+                    ->limit(10)
+                    ->get();
+
+                $rankings = $rankingsRaw->map(function ($u, $index) {
                     return [
                         'rank' => $index + 1,
-                        'name' => $u->name ?: 'Juan Dela Cruz', // Fallback name
-                        'recycled' => (float) ($u->total_recyclables_weight ?? 0),
-                        'points' => (int) ($u->points_total ?? 0),
-                        'bonus' => 0 // Future: implement bonus points logic
+                        'name' => $u->name ?: 'Juan Dela Cruz',
+                        'recycled' => (float) ($u->period_weight ?? 0),
+                        'points' => (int) ($u->period_points ?? 0),
+                        'bonus' => 0
                     ];
                 });
 
-            // Calculate current user's rank
-            // rank = 1 + number of users with more points
-            $userRank = KioskUser::where('points_total', '>', $user->points_total)->count() + 1;
+                // User Specific Stats for Period
+                $userPeriodPoints = PointsTransaction::where('user_id', $user->id)
+                    ->where('transaction_type', 'earned')
+                    ->where('created_at', '>=', $startDate)
+                    ->sum('points');
 
-            // Optional: percent to next rank (simplified logic: progress towards top 10 if not in it)
+                $userPeriodWeight = RecyclingLog::where('user_id', $user->id)
+                    ->where('created_at', '>=', $startDate)
+                    ->sum('weight_kg');
+
+                // Rank calculation for period
+                $betterUsersCount = PointsTransaction::where('transaction_type', 'earned')
+                    ->where('created_at', '>=', $startDate)
+                    ->select('user_id', DB::raw('SUM(points) as period_points'))
+                    ->groupBy('user_id')
+                    ->having('period_points', '>', $userPeriodPoints)
+                    ->get()
+                    ->count();
+
+                $userRank = $betterUsersCount + 1;
+                $userPoints = (int) $userPeriodPoints;
+                $userRecycled = (float) $userPeriodWeight;
+
+            } else {
+                // All-time logic (Existing)
+                $rankings = KioskUser::orderBy('points_total', 'desc')
+                    ->limit(10)
+                    ->get()
+                    ->map(function ($u, $index) {
+                        return [
+                            'rank' => $index + 1,
+                            'name' => $u->name ?: 'Juan Dela Cruz',
+                            'recycled' => (float) ($u->total_recyclables_weight ?? 0),
+                            'points' => (int) ($u->points_total ?? 0),
+                            'bonus' => 0
+                        ];
+                    });
+
+                $userRank = KioskUser::where('points_total', '>', $user->points_total)->count() + 1;
+                $userPoints = (int) $user->points_total;
+                $userRecycled = (float) ($user->total_recyclables_weight ?? 0);
+            }
+
+            // Calculate percent to rank (Simplified)
             $percentToRank = 0;
             if ($userRank > 10) {
-                $top10Threshold = KioskUser::orderBy('points_total', 'desc')->skip(9)->take(1)->value('points_total') ?? 1000;
-                $percentToRank = min(100, round(($user->points_total / max(1, $top10Threshold)) * 100));
+                $thresholdQuery = $startDate
+                    ? PointsTransaction::where('transaction_type', 'earned')->where('created_at', '>=', $startDate)->select(DB::raw('SUM(points) as p'))->groupBy('user_id')->orderBy('p', 'desc')
+                    : KioskUser::orderBy('points_total', 'desc')->select('points_total as p');
+
+                $top10Threshold = $thresholdQuery->skip(9)->take(1)->value('p') ?? 100;
+                $percentToRank = min(100, round(($userPoints / max(1, $top10Threshold)) * 100));
             } else {
                 $percentToRank = 100;
             }
@@ -731,12 +806,13 @@ class ChargingController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
+                    'period' => $period,
                     'rankings' => $rankings,
                     'user_stats' => [
                         'rank' => $userRank,
                         'name' => 'You',
-                        'points' => (int) $user->points_total,
-                        'recycled_count' => (float) ($user->total_recyclables_weight ?? 0),
+                        'points' => $userPoints,
+                        'recycled_count' => $userRecycled,
                         'percent_to_rank' => $percentToRank
                     ]
                 ]

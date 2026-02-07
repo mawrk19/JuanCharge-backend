@@ -121,12 +121,9 @@ class PointVoucherController extends Controller
             $user->points_balance = ($user->points_balance ?? 0) + $voucher->points;
             $user->points_total = ($user->points_total ?? 0) + $voucher->points;
 
-            // Logic for weight if applicable (extract from metadata if possible)
-            $items = $voucher->metadata['items'] ?? [];
-            $weight = 0; // Default
-            // Iterate over items if structure is known
-            // e.g., [{"points": 1, ...}]
-            // Just basic support for now.
+            // Calculate weight (1kg = 15 points if not specified)
+            $weight = $voucher->metadata['total_weight'] ?? ($voucher->points / 15);
+            $user->total_recyclables_weight = ($user->total_recyclables_weight ?? 0) + $weight;
 
             $user->save();
 
@@ -292,6 +289,11 @@ class PointVoucherController extends Controller
 
             $user->points_balance += $voucher->points;
             $user->points_total += $voucher->points;
+
+            // Calculate weight (1kg = 15 points if not specified)
+            $weight = $voucher->metadata['total_weight'] ?? ($voucher->points / 15);
+            $user->total_recyclables_weight = ($user->total_recyclables_weight ?? 0) + $weight;
+
             $user->save();
 
             PointsTransaction::create([
