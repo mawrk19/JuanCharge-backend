@@ -664,8 +664,20 @@ class ChargingController extends Controller
             // Calculate CO2 saved (approximately 0.5 kg CO2 per kWh)
             $co2Saved = $totalEnergyKwh * 0.5;
 
+            // Safeguard: Ensure points_total is at least as much as balance
+            if (($user instanceof \App\Models\KioskUser) && ($user->points_balance > $user->points_total)) {
+                $user->points_total = $user->points_balance;
+                $user->save();
+            }
+
             // Get recyclables weight
             $totalRecyclablesWeight = $user->total_recyclables_weight ?? 0;
+
+            // Calculate rank if user is a patron
+            $rank = '-';
+            if ($user instanceof \App\Models\KioskUser) {
+                $rank = \App\Models\KioskUser::where('points_total', '>', $user->points_total)->count() + 1;
+            }
 
             return response()->json([
                 'success' => true,
@@ -674,6 +686,7 @@ class ChargingController extends Controller
                     'total_charges' => (int) $totalCharges,
                     'total_recyclables_weight_kg' => round((float) $totalRecyclablesWeight, 2),
                     'co2_saved_kg' => round((float) $co2Saved, 2),
+                    'rank' => $rank,
                     // Adding energy for backward compatibility if needed, but primary structure matches request
                     'energy_used_kwh' => round($totalEnergyKwh, 2),
                 ]
@@ -771,7 +784,13 @@ class ChargingController extends Controller
                 $userRecycled = (float) $userPeriodWeight;
 
             } else {
-                // All-time logic (Existing)
+                // All-time logic
+                // Safeguard: Ensure points_total is at least equal to points_balance
+                if ($user->points_balance > $user->points_total) {
+                    $user->points_total = $user->points_balance;
+                    $user->save();
+                }
+
                 $rankings = KioskUser::orderBy('points_total', 'desc')
                     ->limit(10)
                     ->get()
