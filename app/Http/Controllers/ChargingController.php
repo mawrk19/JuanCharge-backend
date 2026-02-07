@@ -587,7 +587,7 @@ class ChargingController extends Controller
                 ], 401);
             }
 
-            $perPage = min($request->get('per_page', 20), 50);
+            $perPage = min($request->get('limit', $request->get('per_page', 20)), 50);
             $type = $request->get('type');
 
             $query = PointsTransaction::where('user_id', $user->id)
