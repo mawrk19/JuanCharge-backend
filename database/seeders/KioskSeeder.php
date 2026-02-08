@@ -9,7 +9,7 @@ class KioskSeeder extends Seeder
     public function run(): void
     {
         Kiosk::create([
-            'kiosk_code' => 'KSK-001',
+            'kiosk_code' => 'UCC-Kiosk-0001',
             'location' => 'Downtown',
             'status' => 'active',
             'serial_number' => 'SN123456',
