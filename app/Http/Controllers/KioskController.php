@@ -232,11 +232,19 @@ class KioskController extends Controller
                     ? \Carbon\Carbon::createFromTimestampMs($validated['timestamp'])
                     : now();
 
+                $itemTypeMapping = [
+                    'Pet/plastic battles' => 'pet',
+                    'Tin/cans' => 'can',
+                    'glass_bottle' => 'glass_bottle', // already normalized
+                ];
+
                 foreach ($validated['recycling_stats'] as $type => $count) {
                     if ($count > 0) {
+                        $normalizedType = $itemTypeMapping[$type] ?? strtolower(str_replace(' ', '_', $type));
+                        
                         KioskRecyclingLog::create([
                             'kiosk_id' => $kiosk->id,
-                            'item_type' => $type,
+                            'item_type' => $normalizedType,
                             'count' => $count,
                             'hardware_timestamp' => $hwTimestamp,
                         ]);
