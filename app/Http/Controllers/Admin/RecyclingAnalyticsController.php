@@ -28,15 +28,15 @@ class RecyclingAnalyticsController extends Controller
             }
 
             // 1. Total items recycled (all-time)
-            $totalItems = KioskRecyclingLog::sum('count');
+            $totalItems = \App\Models\RecyclingLog::sum('count');
 
             // 2. Breakdown by item_type
-            $breakdown = KioskRecyclingLog::select('item_type', DB::raw('SUM(count) as total_count'))
+            $breakdown = \App\Models\RecyclingLog::select('item_type', DB::raw('SUM(count) as total_count'))
                 ->groupBy('item_type')
                 ->get();
 
             // 3. Daily trends (last 30 days)
-            $trends = KioskRecyclingLog::select(
+            $trends = \App\Models\RecyclingLog::select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('SUM(count) as total_count')
             )

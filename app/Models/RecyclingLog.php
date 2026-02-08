@@ -15,6 +15,8 @@ class RecyclingLog extends Model
         'weight_kg',
         'points_earned',
         'item_type',
+        'count',
+        'hardware_timestamp',
         'status',
         'notes',
     ];

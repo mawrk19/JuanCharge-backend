@@ -241,12 +241,15 @@ class KioskController extends Controller
                 foreach ($validated['recycling_stats'] as $type => $count) {
                     if ($count > 0) {
                         $normalizedType = $itemTypeMapping[$type] ?? strtolower(str_replace(' ', '_', $type));
-                        
-                        KioskRecyclingLog::create([
+
+                        \App\Models\RecyclingLog::create([
                             'kiosk_id' => $kiosk->id,
                             'item_type' => $normalizedType,
                             'count' => $count,
                             'hardware_timestamp' => $hwTimestamp,
+                            'weight_kg' => 0, // Weights are calculated on user sessions
+                            'points_earned' => 0,
+                            'status' => 'completed'
                         ]);
                     }
                 }

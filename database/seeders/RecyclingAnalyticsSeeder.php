@@ -46,7 +46,6 @@ class RecyclingAnalyticsSeeder extends Seeder
         ]);
 
         // 2. Clear existing logs to start fresh
-        KioskRecyclingLog::truncate();
         RecyclingLog::truncate();
 
         // 3. Define Weight constants (in grams)
@@ -76,23 +75,15 @@ class RecyclingAnalyticsSeeder extends Seeder
                 // Randomize time during the day
                 $logDate = (clone $date)->subHours(rand(1, 12))->subMinutes(rand(1, 59));
 
-                // Create Kiosk-side log (counts)
-                KioskRecyclingLog::create([
-                    'kiosk_id' => $kiosk->id,
-                    'item_type' => $type,
-                    'count' => $count,
-                    'hardware_timestamp' => $logDate,
-                    'created_at' => $logDate,
-                    'updated_at' => $logDate,
-                ]);
-
-                // Create User-side log (weights & points)
+                // Create consolidated RecyclingLog entry (with weights & points)
                 RecyclingLog::create([
                     'user_id' => $user->id,
                     'kiosk_id' => $kiosk->id,
                     'weight_kg' => $weightKg,
                     'points_earned' => $points,
                     'item_type' => $type,
+                    'count' => $count,
+                    'hardware_timestamp' => $logDate,
                     'status' => 'completed',
                     'created_at' => $logDate,
                     'updated_at' => $logDate,
