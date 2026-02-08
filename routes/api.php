@@ -20,11 +20,12 @@ Route::post('/auth/register', [KioskUserController::class, 'register']);
 
 
 // Kiosk Machine Routes (Public/Machine Auth)
+Route::get('/kiosk/status/{kiosk_code}', [KioskController::class, 'status']);
+Route::get('/kiosks/status/{kiosk_code}', [KioskController::class, 'status']);
 Route::post('/kiosk/vouchers', [PointVoucherController::class, 'store']);
 Route::post('/kiosk/vouchers/sync', [PointVoucherController::class, 'sync']); // Offline Sync Job
 Route::post('/kiosk/redeem', [ChargingController::class, 'redeemFromKiosk']);
 Route::post('/kiosk/heartbeat', [KioskController::class, 'heartbeat']);
-Route::get('/kiosk/status/{kiosk_code}', [KioskController::class, 'status']);
 
 // Mobile-specific auth routes (for patron/kiosk users)
 Route::middleware(['mobile-api'])->group(function () {
@@ -71,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Kiosks CRUD
     Route::apiResource('kiosks', KioskController::class);
+    Route::get('/kiosks/id/{id}', [KioskController::class, 'show']);
 
     // Kiosk Users CRUD
     Route::get('/kiosk-users', [KioskUserController::class, 'index']);
