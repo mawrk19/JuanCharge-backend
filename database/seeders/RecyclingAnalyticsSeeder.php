@@ -54,28 +54,25 @@ class RecyclingAnalyticsSeeder extends Seeder
             'metal' => 14.9,   // Aluminum Can 355ml
         ];
 
-        // 4. Generate data for the last 30 days
+        // 4. Generate specific total counts over the last 30 days
         $now = Carbon::now();
 
-        for ($i = 0; $i < 30; $i++) {
-            $date = (clone $now)->subDays($i);
+        $types = [
+            'plastic' => 68,
+            'metal' => 20
+        ];
 
-            // Random number of sessions per day (0 to 3)
-            $sessions = rand(0, 3);
-
-            for ($j = 0; $j < $sessions; $j++) {
-                // Pick a random type
-                $type = rand(0, 1) ? 'plastic' : 'metal';
-                $count = rand(5, 30);
+        foreach ($types as $type => $totalTarget) {
+            for ($k = 0; $k < $totalTarget; $k++) {
+                $count = 1; // Each entry is 1 piece to match the requested total exactly
 
                 // Calculate weight in KG
                 $weightKg = ($count * $weights[$type]) / 1000;
-                $points = $count * ($type === 'plastic' ? 2 : 5); // 2 pts for plastic, 5 pts for metal
+                $points = $count * ($type === 'plastic' ? 2 : 5);
 
-                // Randomize time during the day
-                $logDate = (clone $date)->subHours(rand(1, 12))->subMinutes(rand(1, 59));
+                // Pick a random day in the last 30 days
+                $logDate = (clone $now)->subDays(rand(0, 29))->subHours(rand(1, 12))->subMinutes(rand(1, 59));
 
-                // Create consolidated RecyclingLog entry (with weights & points)
                 RecyclingLog::create([
                     'user_id' => $user->id,
                     'kiosk_id' => $kiosk->id,
