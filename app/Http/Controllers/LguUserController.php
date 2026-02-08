@@ -114,22 +114,16 @@ class LguUserController extends Controller
         try {
             // Only send email if mail is properly configured
             if (config('mail.mailers.smtp.host')) {
-                Mail::send('emails.welcome-user', ['user' => $user, 'password' => $password], function ($message) use ($user) {
-                    $message->to($user->email)
-                        ->subject('Welcome to JuanCharge - Your Login Credentials');
-                });
+                // Use queue to prevent 30s timeout on production
+                Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
             } else {
-                // Log the credentials if email is not configured
-                Log::info('User created - Email not sent (mail not configured)', [
+                Log::info('User created - Email not queued (mail not configured)', [
                     'email' => $user->email,
-                    'password' => $password,
-                    'name' => $user->name,
-                    'role' => $user->role
+                    'password' => $password
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send welcome email to ' . $user->email . ': ' . $e->getMessage());
-            // Don't throw - just log the error so user creation still succeeds
+            Log::error('Failed to queue welcome email to ' . $user->email . ': ' . $e->getMessage());
         }
     }
 

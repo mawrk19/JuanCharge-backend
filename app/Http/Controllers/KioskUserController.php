@@ -23,7 +23,7 @@ class KioskUserController extends Controller
         try {
             $perPage = $request->get('per_page', 15); // Default 15 items per page
             $users = KioskUser::paginate($perPage);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $users->items(),
@@ -174,7 +174,7 @@ class KioskUserController extends Controller
                 'message' => 'User deletion failed: ' . $e->getMessage()
             ], 500);
         }
-    }   
+    }
 
     public function disableUser($id)
     {
@@ -234,7 +234,7 @@ class KioskUserController extends Controller
 
             // Send welcome email
             try {
-                Mail::to($user->email)->send(new WelcomeRegisteredKioskUser($user, $plainPassword));
+                Mail::to($user->email)->queue(new WelcomeRegisteredKioskUser($user, $plainPassword));
             } catch (\Exception $e) {
                 Log::error('Failed to send welcome email to registered kiosk user: ' . $e->getMessage());
                 // Don't fail registration if email fails
