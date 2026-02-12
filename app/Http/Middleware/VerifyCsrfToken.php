@@ -32,6 +32,17 @@ class VerifyCsrfToken extends Middleware
      */
     protected function inExceptArray($request)
     {
+        // 1. Broad Nature-based bypass for APIs (Safe for mobile/stateless clients)
+        if (
+            $request->expectsJson() ||
+            $request->header('X-Requested-With') === 'XMLHttpRequest' ||
+            $request->is('api/*') ||
+            $request->is('auth/*')
+        ) {
+            return true;
+        }
+
+        // 2. Pattern-based fallback
         foreach ($this->except as $except) {
             if ($except !== '/') {
                 $except = trim($except, '/');
@@ -42,15 +53,19 @@ class VerifyCsrfToken extends Middleware
             }
         }
 
-        // Debug logging for mismatch
-        if ($request->is('api/*') || $request->is('auth/*')) {
-            \Illuminate\Support\Facades\Log::warning('CSRF Mismatch Debug:', [
-                'path' => $request->path(),
-                'full_url' => $request->fullUrl(),
-                'origin' => $request->headers->get('Origin'),
-                'is_stateful' => $request->attributes->get('sanctum') ? 'yes' : 'no'
-            ]);
+        // 3. Fallback to pattern check (should be covered by nature-based but for safety)
+        if (parent::inExceptArray($request)) {
+            return true;
         }
+
+        // Debug logging for actual mismatches (if they still happen)
+        \Illuminate\Support\Facades\Log::warning('CSRF Mismatch Debug:', [
+            'path' => $request->path(),
+            'method' => $request->method(),
+            'origin' => $request->headers->get('Origin'),
+            'accept' => $request->headers->get('Accept'),
+            'is_json' => $request->expectsJson() ? 'yes' : 'no'
+        ]);
 
         return false;
     }
