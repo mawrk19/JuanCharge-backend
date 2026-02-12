@@ -69,17 +69,6 @@ class LguUserController extends Controller
                 }
             }
 
-            // Ensure lgu_id is still present (either from request or auth context)
-            if (empty($validated['lgu_id'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => [
-                        'lgu_id' => ['The lgu id field is required when creating a user from this context.']
-                    ]
-                ], 422);
-            }
-
             // Auto-generate full name
             $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
             $validated['is_first_login'] = true;
