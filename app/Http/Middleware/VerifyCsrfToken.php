@@ -16,6 +16,8 @@ class VerifyCsrfToken extends Middleware
         'api/auth/logout',
         'api/auth/register',
         'api/auth/otp/*', // OTP endpoints bypass CSRF
-        'api/mobile/*', // All mobile endpoints bypass CSRF
+        'auth/otp/*',     // Non-prefixed fallback
+        'api/mobile/*',   // All mobile endpoints bypass CSRF
+        'mobile/*',       // Non-prefixed fallback
     ];
 }
