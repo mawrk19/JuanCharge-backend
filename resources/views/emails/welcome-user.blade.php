@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +15,7 @@
             padding: 20px;
             min-height: 100vh;
         }
+
         .email-container {
             max-width: 600px;
             margin: 20px auto;
@@ -24,6 +26,7 @@
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 60px rgba(76, 175, 80, 0.1);
         }
+
         .header {
             background: linear-gradient(120deg, #061e08 0%, #0d3a15 25%, #1e6b2e 50%, #2d8f3f 75%, #4caf50 100%);
             color: #ffffff;
@@ -35,6 +38,7 @@
             align-items: center;
             justify-content: space-between;
         }
+
         .header::before {
             content: '';
             position: absolute;
@@ -45,6 +49,7 @@
             background: linear-gradient(135deg, rgba(6, 30, 8, 0.95) 0%, rgba(13, 58, 21, 0.9) 25%, rgba(30, 107, 46, 0.8) 50%, rgba(45, 143, 63, 0.85) 75%, rgba(76, 175, 80, 0.9) 100%);
             z-index: 0;
         }
+
         .header::after {
             content: '';
             position: absolute;
@@ -52,19 +57,31 @@
             right: -50%;
             width: 300%;
             height: 300%;
-            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.2) 0%, transparent 50%);
+            background: radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
             animation: shimmer 4s ease-in-out infinite;
             z-index: 1;
         }
+
         @keyframes shimmer {
-            0%, 100% { opacity: 0.3; transform: translate(0, 0); }
-            50% { opacity: 0.6; transform: translate(-10%, 10%); }
+
+            0%,
+            100% {
+                opacity: 0.3;
+                transform: translate(0, 0);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: translate(-10%, 10%);
+            }
         }
+
         .header-content {
             position: relative;
             z-index: 2;
             flex: 1;
         }
+
         .header h1 {
             margin: 0;
             font-size: 28px;
@@ -73,6 +90,7 @@
             z-index: 2;
             text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
         }
+
         .header p {
             margin: 8px 0 0;
             font-size: 15px;
@@ -81,15 +99,18 @@
             z-index: 2;
             text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
         }
+
         .content {
             padding: 40px 30px;
             background: rgba(10, 15, 13, 0.3);
         }
+
         .greeting {
             font-size: 18px;
             color: #ffffff;
             margin-bottom: 20px;
         }
+
         .welcome-text {
             font-size: 22px;
             color: #ffffff;
@@ -97,6 +118,7 @@
             line-height: 1.8;
             margin: 20px 0 30px;
         }
+
         .credentials-box {
             background: rgba(0, 0, 0, 0.4);
             border-left: 4px solid #4caf50;
@@ -105,23 +127,27 @@
             border-radius: 12px;
             border: 1px solid rgba(76, 175, 80, 0.3);
         }
+
         .credentials-box h2 {
             margin: 0 0 20px;
             color: #66bb6a;
             font-size: 20px;
             font-weight: 600;
         }
+
         .credential-item {
             margin: 15px 0;
             display: flex;
             align-items: center;
         }
+
         .credential-label {
             font-weight: 600;
             color: rgba(255, 255, 255, 0.7);
             min-width: 100px;
             display: inline-block;
         }
+
         .credential-value {
             color: #ffffff;
             font-family: 'Courier New', monospace;
@@ -131,12 +157,14 @@
             border: 1px solid rgba(76, 175, 80, 0.3);
             flex: 1;
         }
+
         .password-value {
             font-size: 18px;
             font-weight: 600;
             letter-spacing: 2px;
             color: #66bb6a;
         }
+
         .security-notice {
             background: rgba(255, 193, 7, 0.15);
             border-left: 4px solid #ffc107;
@@ -145,6 +173,7 @@
             border-radius: 12px;
             border: 1px solid rgba(255, 193, 7, 0.3);
         }
+
         .security-notice h3 {
             margin: 0 0 15px;
             color: #ffc107;
@@ -152,19 +181,23 @@
             display: flex;
             align-items: center;
         }
+
         .security-notice h3::before {
             content: "⚠️";
             margin-right: 8px;
             font-size: 20px;
         }
+
         .security-notice ul {
             margin: 0;
             padding-left: 20px;
             color: rgba(255, 255, 255, 0.9);
         }
+
         .security-notice li {
             margin: 8px 0;
         }
+
         .login-button {
             display: inline-block;
             background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
@@ -180,10 +213,12 @@
             letter-spacing: 0.5px;
             text-transform: uppercase;
         }
+
         .login-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
         }
+
         .footer {
             background: rgba(0, 0, 0, 0.3);
             padding: 30px;
@@ -192,45 +227,56 @@
             font-size: 14px;
             border-top: 1px solid rgba(76, 175, 80, 0.2);
         }
+
         .footer p {
             margin: 5px 0;
         }
+
         .footer strong {
             color: #66bb6a;
         }
+
         .divider {
             height: 1px;
             background: linear-gradient(to right, transparent, rgba(76, 175, 80, 0.3), transparent);
             margin: 30px 0;
         }
+
         @media only screen and (max-width: 600px) {
             .email-container {
                 border-radius: 16px;
             }
+
             .header {
                 flex-direction: column;
                 text-align: center;
                 padding: 25px 20px;
             }
+
             .content {
                 padding: 30px 20px;
             }
+
             .credentials-box {
                 padding: 20px;
             }
+
             .credential-item {
                 flex-direction: column;
                 align-items: flex-start;
             }
+
             .credential-label {
                 margin-bottom: 5px;
             }
+
             .credential-value {
                 width: 100%;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="email-container">
         <!-- Header -->
@@ -248,14 +294,14 @@
             </div>
 
             <p class="welcome-text">
-                Welcome to the JuanCharge LGU Portal! We're excited to have you on board. 
+                Welcome to the JuanCharge LGU Portal! We're excited to have you on board.
                 Your account has been successfully created and is ready to use.
             </p>
 
             <!-- Credentials Box -->
             <div class="credentials-box">
                 <h2>🔑 Your Login Credentials</h2>
-                
+
                 <div class="credential-item">
                     <span class="credential-label">Email:</span>
                     <span class="credential-value">{{ $user->email }}</span>
@@ -266,17 +312,14 @@
                     <span class="credential-value password-value">{{ $password }}</span>
                 </div>
 
-                <div class="credential-item">
-                    <span class="credential-label">Role:</span>
-                    <span class="credential-value">{{ $user->role }}</span>
-                </div>
             </div>
 
             <!-- Security Notice -->
             <div class="security-notice">
                 <h3>Important Security Notice</h3>
                 <ul>
-                    <li><strong>This is a temporary password</strong> - You will be required to change it on your first login</li>
+                    <li><strong>This is a temporary password</strong> - You will be required to change it on your first
+                        login</li>
                     <li>Keep this information <strong>confidential</strong></li>
                     <li><strong>Never share</strong> your password with anyone</li>
                     <li>If you didn't request this account, please contact support immediately</li>
@@ -314,4 +357,5 @@
         </div>
     </div>
 </body>
+
 </html>
