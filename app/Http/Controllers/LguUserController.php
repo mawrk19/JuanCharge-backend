@@ -57,8 +57,28 @@ class LguUserController extends Controller
                 'first_name' => 'required|string|max:64',
                 'last_name' => 'required|string|max:64',
                 'email' => 'required|email|max:128|unique:lgu_users,email',
-                'lgu_id' => 'required|exists:lgus,id',
+                'lgu_id' => 'nullable|exists:lgus,id',
             ]);
+
+            // Auto-populate lgu_id if not provided and authenticated user has an LGU
+            if (empty($validated['lgu_id'])) {
+                $authUser = $request->user();
+                // Check if user is an LguUser or has an lgu_id attribute
+                if ($authUser && isset($authUser->lgu_id)) {
+                    $validated['lgu_id'] = $authUser->lgu_id;
+                }
+            }
+
+            // Ensure lgu_id is still present (either from request or auth context)
+            if (empty($validated['lgu_id'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'lgu_id' => ['The lgu id field is required when creating a user from this context.']
+                    ]
+                ], 422);
+            }
 
             // Auto-generate full name
             $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
