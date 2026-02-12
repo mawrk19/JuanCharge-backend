@@ -13,7 +13,11 @@ return [
     |
     */
 
-    'stateful' => [],
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
+        '%s%s',
+        parse_url(config('app.url'), PHP_URL_HOST),
+        parse_url(config('app.url'), PHP_URL_PORT) ? ':' . parse_url(config('app.url'), PHP_URL_PORT) : ''
+    ))),
 
     /*
     |--------------------------------------------------------------------------
