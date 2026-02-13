@@ -130,28 +130,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/analytics/recycling', [\App\Http\Controllers\Admin\RecyclingAnalyticsController::class, 'index']);
 });
 
-// TEMP: Debug route for seeding LGU users on production
-Route::get('/api/debug/seed-lgu-users', function () {
-    $secret = 'JuanChargeSecretSeed2026';
-    if (request()->get('secret') !== $secret) {
-        return response()->json(['message' => 'Unauthorized'], 401);
-    }
-
-    try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'QuickLguUserSeeder', '--force' => true]);
-        return response()->json([
-            'success' => true,
-            'message' => 'Seeding successful',
-            'output' => \Illuminate\Support\Facades\Artisan::output()
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Seeding failed: ' . $e->getMessage()
-        ], 500);
-    }
-});
-
 Route::fallback(function () {
     return response()->json([
         'success' => false,
