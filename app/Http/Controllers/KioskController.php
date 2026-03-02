@@ -15,17 +15,13 @@ class KioskController extends Controller
     public function index()
     {
         try {
-            $kiosks = Kiosk::with(['assignedTo', 'lgu'])->get();
+            $kiosks = Kiosk::with(['assignedTo:id,name', 'lgu:id,name'])->get();
 
             $transformedKiosks = $kiosks->map(function ($kiosk) {
                 $data = $kiosk->toArray();
 
-                // Safely add the user name
-                $data['assigned_user_name'] = null;
-                if ($kiosk->assignedTo) {
-                    $data['assigned_user_name'] = $kiosk->assignedTo->name;
-                }
-
+                // Transform assigned_to into name string
+                $data['assigned_to'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
                 $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
                 return $data;
@@ -67,7 +63,7 @@ class KioskController extends Controller
             $kiosk->load(['assignedTo', 'lgu']);
 
             $data = $kiosk->toArray();
-            $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
+            $data['assigned_to'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
             $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
             return response()->json([
@@ -103,7 +99,7 @@ class KioskController extends Controller
                 ->firstOrFail();
 
             $data = $kiosk->toArray();
-            $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
+            $data['assigned_to'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
             $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
             return response()->json([
@@ -139,7 +135,7 @@ class KioskController extends Controller
             $kiosk->load(['assignedTo', 'lgu']);
 
             $data = $kiosk->toArray();
-            $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
+            $data['assigned_to'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
             $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
 
             return response()->json([
