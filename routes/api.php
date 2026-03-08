@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PointVoucherController;
 use App\Http\Controllers\PortActivationController;
+use App\Http\Controllers\RecyclingLogController;
 
 // Public routes
 Route::get('/', function () {
@@ -24,6 +25,7 @@ Route::get('/kiosk/status/{kiosk_code}', [KioskController::class, 'status']);
 Route::get('/kiosks/status/{kiosk_code}', [KioskController::class, 'status']);
 Route::post('/kiosk/vouchers', [PointVoucherController::class, 'store']);
 Route::post('/kiosk/vouchers/sync', [PointVoucherController::class, 'sync']); // Offline Sync Job
+Route::post('/kiosk/recycling-logs/sync', [RecyclingLogController::class, 'sync']); // Kiosk Recycling Sync
 Route::post('/kiosk/redeem', [ChargingController::class, 'redeemFromKiosk']);
 Route::post('/kiosk/heartbeat', [KioskController::class, 'heartbeat']);
 

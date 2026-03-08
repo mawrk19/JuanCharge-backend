@@ -193,7 +193,7 @@ class KioskController extends Controller
                 'status' => 'required|string',
                 'ports' => 'nullable|array',
                 'recycling_stats' => 'nullable|array',
-                'timestamp' => 'nullable|numeric',
+                'timestamp' => 'nullable', // Allow string timestamps (ISO 8601)
             ]);
 
             $kiosk = Kiosk::where('kiosk_code', $validated['kiosk_code'])->firstOrFail();
@@ -228,9 +228,18 @@ class KioskController extends Controller
 
             // Process recycling stats
             if (!empty($validated['recycling_stats'])) {
-                $hwTimestamp = isset($validated['timestamp'])
-                    ? \Carbon\Carbon::createFromTimestampMs($validated['timestamp'])
-                    : now();
+                $hwTimestamp = now();
+                if (isset($validated['timestamp'])) {
+                    if (is_numeric($validated['timestamp'])) {
+                        $hwTimestamp = \Carbon\Carbon::createFromTimestampMs($validated['timestamp']);
+                    } else {
+                        try {
+                            $hwTimestamp = \Carbon\Carbon::parse($validated['timestamp']);
+                        } catch (\Exception $e) {
+                            // Keep current time if parse fails
+                        }
+                    }
+                }
 
                 $itemTypeMapping = [
                     'Pet/plastic battles' => 'pet',

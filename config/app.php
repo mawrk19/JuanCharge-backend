@@ -57,6 +57,7 @@ return [
     'asset_url' => env('ASSET_URL', null),
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    'kiosk_shared_secret' => env('KIOSK_SHARED_SECRET', 'default_secret_key'),
 
     /*
     |--------------------------------------------------------------------------

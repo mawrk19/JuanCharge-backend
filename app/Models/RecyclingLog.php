@@ -12,6 +12,8 @@ class RecyclingLog extends Model
     protected $fillable = [
         'user_id',
         'kiosk_id',
+        'kiosk_code',
+        'transaction_id',
         'weight_kg',
         'points_earned',
         'item_type',
