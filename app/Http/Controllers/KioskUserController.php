@@ -10,8 +10,12 @@ use Illuminate\Validation\ValidationException;
 use App\Mail\WelcomeKioskUser;
 use App\Mail\WelcomeRegisteredKioskUser;
 
+use App\Traits\SendsBrevoEmails;
+
 class KioskUserController extends Controller
 {
+    use SendsBrevoEmails;
+
     /**
      * Display a listing of kiosk users.
      *
@@ -234,7 +238,8 @@ class KioskUserController extends Controller
 
             // Send welcome email
             try {
-                Mail::to($user->email)->queue(new WelcomeRegisteredKioskUser($user, $plainPassword));
+                Log::info('Sending welcome email via Laravel Mail for registered kiosk user: ' . $user->email);
+                \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\WelcomeRegisteredKioskUser($user, $plainPassword));
             } catch (\Exception $e) {
                 Log::error('Failed to send welcome email to registered kiosk user: ' . $e->getMessage());
                 // Don't fail registration if email fails

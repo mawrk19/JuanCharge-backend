@@ -9,8 +9,12 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 
+use App\Traits\SendsBrevoEmails;
+
 class LguUserController extends Controller
 {
+    use SendsBrevoEmails;
+
     /**
      * Display a listing of LGU users.
      *
@@ -90,6 +94,7 @@ class LguUserController extends Controller
                 'data' => $user
             ], 201);
         } catch (ValidationException $e) {
+            Log::warning('LGU User Validation failed', ['errors' => $e->errors(), 'request' => $request->all()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -113,20 +118,13 @@ class LguUserController extends Controller
      */
     private function sendWelcomeEmail($user, $password)
     {
+        Log::info('Sending welcome email via Laravel Mail for LGU user: ' . $user->email);
         try {
-            // Use queue to prevent "maximum execution" timeouts with SMTP
-            // Ensure mailer is configured before queueing
-            if (config('mail.mailers.smtp.host') || config('mail.default')) {
-                Log::info('Queueing welcome email for user: ' . $user->email);
-                Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
-            } else {
-                Log::info('User created - Email not queued (mail not configured)', [
-                    'email' => $user->email,
-                    'password' => $password
-                ]);
-            }
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\WelcomeUser($user, $password));
+            Log::info('Welcome email successfully sent to: ' . $user->email);
         } catch (\Exception $e) {
-            Log::error('Failed to queue welcome email to ' . $user->email . ': ' . $e->getMessage());
+            Log::error('Failed to send welcome email to ' . $user->email . ': ' . $e->getMessage());
+            throw new \Exception('Failed to send welcome email. Check logs for error details.');
         }
     }
 

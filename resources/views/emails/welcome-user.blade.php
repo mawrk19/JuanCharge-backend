@@ -1,361 +1,226 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to JuanCharge</title>
     <style>
+        /* Base Reset */
+        body, table, td, a {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+        }
+
+        /* Essential styles */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #ffffff;
-            background: linear-gradient(135deg, #0a0f0d 0%, #142221 50%, #1a2c28 100%);
             margin: 0;
-            padding: 20px;
-            min-height: 100vh;
+            padding: 0;
+            width: 100% !important;
+            background-color: #f4f7f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            color: #333333;
         }
 
-        .email-container {
+        .email-wrapper {
+            width: 100%;
+            background-color: #f4f7f6;
+            padding: 40px 0;
+        }
+
+        .email-content {
             max-width: 600px;
-            margin: 20px auto;
-            background: rgba(20, 34, 33, 0.85);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(76, 175, 80, 0.3);
-            border-radius: 24px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 60px rgba(76, 175, 80, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
-        .header {
-            background: linear-gradient(120deg, #061e08 0%, #0d3a15 25%, #1e6b2e 50%, #2d8f3f 75%, #4caf50 100%);
-            color: #ffffff;
+        .email-header {
+            background-color: #2E7D32;
             padding: 30px 40px;
-            text-align: left;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            text-align: center;
         }
 
-        .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(6, 30, 8, 0.95) 0%, rgba(13, 58, 21, 0.9) 25%, rgba(30, 107, 46, 0.8) 50%, rgba(45, 143, 63, 0.85) 75%, rgba(76, 175, 80, 0.9) 100%);
-            z-index: 0;
-        }
-
-        .header::after {
-            content: '';
-            position: absolute;
-            top: -100%;
-            right: -50%;
-            width: 300%;
-            height: 300%;
-            background: radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
-            animation: shimmer 4s ease-in-out infinite;
-            z-index: 1;
-        }
-
-        @keyframes shimmer {
-
-            0%,
-            100% {
-                opacity: 0.3;
-                transform: translate(0, 0);
-            }
-
-            50% {
-                opacity: 0.6;
-                transform: translate(-10%, 10%);
-            }
-        }
-
-        .header-content {
-            position: relative;
-            z-index: 2;
-            flex: 1;
-        }
-
-        .header h1 {
+        .email-header h1 {
+            color: #ffffff;
             margin: 0;
-            font-size: 28px;
-            font-weight: 700;
-            position: relative;
-            z-index: 2;
-            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
 
-        .header p {
-            margin: 8px 0 0;
-            font-size: 15px;
-            opacity: 0.95;
-            position: relative;
-            z-index: 2;
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        .email-body {
+            padding: 40px;
+            line-height: 1.6;
+            font-size: 16px;
         }
 
-        .content {
-            padding: 40px 30px;
-            background: rgba(10, 15, 13, 0.3);
-        }
-
-        .greeting {
-            font-size: 18px;
-            color: #ffffff;
-            margin-bottom: 20px;
-        }
-
-        .welcome-text {
-            font-size: 22px;
-            color: #ffffff;
-            font-weight: 500;
-            line-height: 1.8;
-            margin: 20px 0 30px;
-        }
-
-        .credentials-box {
-            background: rgba(0, 0, 0, 0.4);
-            border-left: 4px solid #4caf50;
-            padding: 25px;
-            margin: 30px 0;
-            border-radius: 12px;
-            border: 1px solid rgba(76, 175, 80, 0.3);
-        }
-
-        .credentials-box h2 {
-            margin: 0 0 20px;
-            color: #66bb6a;
+        .email-body h2 {
+            margin-top: 0;
+            color: #1a1a1a;
             font-size: 20px;
             font-weight: 600;
         }
 
-        .credential-item {
-            margin: 15px 0;
-            display: flex;
-            align-items: center;
+        .credentials-box {
+            background-color: #f9fbf9;
+            border: 1px solid #e2ece3;
+            border-radius: 6px;
+            padding: 24px;
+            margin: 30px 0;
+        }
+
+        .credentials-box p {
+            margin: 0 0 12px 0;
+            font-size: 15px;
+            color: #555555;
+        }
+
+        .credentials-box p:last-child {
+            margin-bottom: 0;
         }
 
         .credential-label {
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.7);
-            min-width: 100px;
+            color: #333333;
             display: inline-block;
-        }
-
-        .credential-value {
-            color: #ffffff;
-            font-family: 'Courier New', monospace;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: 1px solid rgba(76, 175, 80, 0.3);
-            flex: 1;
+            width: 90px;
         }
 
         .password-value {
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            color: #66bb6a;
+            font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #2E7D32;
+            font-weight: bold;
+            letter-spacing: 1px;
         }
 
-        .security-notice {
-            background: rgba(255, 193, 7, 0.15);
+        .notice-box {
+            background-color: #fff8e1;
             border-left: 4px solid #ffc107;
-            padding: 20px;
-            margin: 30px 0;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 193, 7, 0.3);
+            padding: 16px 20px;
+            margin: 24px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #665000;
         }
 
-        .security-notice h3 {
-            margin: 0 0 15px;
-            color: #ffc107;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
+        .notice-box p {
+            margin: 0 0 8px 0;
+            font-weight: 600;
         }
 
-        .security-notice h3::before {
-            content: "⚠️";
-            margin-right: 8px;
-            font-size: 20px;
-        }
-
-        .security-notice ul {
+        .notice-box ul {
             margin: 0;
             padding-left: 20px;
-            color: rgba(255, 255, 255, 0.9);
         }
 
-        .security-notice li {
-            margin: 8px 0;
+        .notice-box li {
+            margin-bottom: 4px;
         }
 
-        .login-button {
+        .button-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .action-button {
             display: inline-block;
-            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-            color: #000000;
-            padding: 15px 40px;
+            background-color: #2E7D32;
+            color: #ffffff !important;
             text-decoration: none;
-            border-radius: 12px;
-            font-weight: 700;
-            margin: 20px 0;
+            padding: 14px 32px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .action-button:hover {
+            background-color: #1B5E20;
+        }
+
+        .email-footer {
+            background-color: #f4f7f6;
+            padding: 30px 40px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
-            transition: all 0.3s ease;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            font-size: 13px;
+            color: #888888;
         }
 
-        .login-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+        .email-footer p {
+            margin: 0 0 8px 0;
         }
 
-        .footer {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 30px;
-            text-align: center;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
-            border-top: 1px solid rgba(76, 175, 80, 0.2);
-        }
-
-        .footer p {
-            margin: 5px 0;
-        }
-
-        .footer strong {
-            color: #66bb6a;
-        }
-
-        .divider {
-            height: 1px;
-            background: linear-gradient(to right, transparent, rgba(76, 175, 80, 0.3), transparent);
-            margin: 30px 0;
-        }
-
-        @media only screen and (max-width: 600px) {
-            .email-container {
-                border-radius: 16px;
+        @media screen and (max-width: 600px) {
+            .email-content {
+                border-radius: 0;
             }
-
-            .header {
-                flex-direction: column;
-                text-align: center;
-                padding: 25px 20px;
+            .email-body {
+                padding: 24px;
             }
-
-            .content {
-                padding: 30px 20px;
-            }
-
-            .credentials-box {
-                padding: 20px;
-            }
-
-            .credential-item {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .credential-label {
-                margin-bottom: 5px;
-            }
-
-            .credential-value {
-                width: 100%;
+            .email-header {
+                padding: 24px;
             }
         }
     </style>
 </head>
-
 <body>
-    <div class="email-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-content">
-                <h1>⚡ Welcome to JuanCharge</h1>
-                <p>Your LGU Portal Account is Ready</p>
-            </div>
-        </div>
-
-        <!-- Content -->
-        <div class="content">
-            <div class="greeting">
-                Hello <strong>{{ $user->name }}</strong>,
+    <div class="email-wrapper">
+        <div class="email-content">
+            <!-- Header -->
+            <div class="email-header">
+                <h1>JuanCharge LGU Portal</h1>
             </div>
 
-            <p class="welcome-text">
-                Welcome to the JuanCharge LGU Portal! We're excited to have you on board.
-                Your account has been successfully created and is ready to use.
-            </p>
-
-            <!-- Credentials Box -->
-            <div class="credentials-box">
-                <h2>🔑 Your Login Credentials</h2>
-
-                <div class="credential-item">
-                    <span class="credential-label">Email:</span>
-                    <span class="credential-value">{{ $user->email }}</span>
+            <!-- Body -->
+            <div class="email-body">
+                <h2>Welcome, {{ $user->name }}</h2>
+                <p>An account has been provisioned for you on the JuanCharge LGU Portal. You can now access the system to manage your local government unit's recycling and charging records.</p>
+                
+                <div class="credentials-box">
+                    <p><strong>Your Account Credentials</strong></p>
+                    <p><span class="credential-label">Email:</span> {{ $user->email }}</p>
+                    <p><span class="credential-label">Password:</span> <span class="password-value">{{ $password }}</span></p>
                 </div>
 
-                <div class="credential-item">
-                    <span class="credential-label">Password:</span>
-                    <span class="credential-value password-value">{{ $password }}</span>
+                <div class="notice-box">
+                    <p>Security Requirements</p>
+                    <ul>
+                        <li>This is a temporary system-generated password.</li>
+                        <li>You will be required to change your password upon your first login.</li>
+                        <li>Do not share these credentials with anyone.</li>
+                    </ul>
                 </div>
 
+                <div class="button-container">
+                    <a href="{{ config('app.frontend_url', 'https://juancharge.vercel.app') }}/login" class="action-button">
+                        Sign In to Portal
+                    </a>
+                </div>
+
+                <p style="color: #666666; font-size: 14px; margin-top: 30px;">
+                    If you encounter any issues logging in, please contact the JuanCharge support team immediately.
+                </p>
             </div>
 
-            <!-- Security Notice -->
-            <div class="security-notice">
-                <h3>Important Security Notice</h3>
-                <ul>
-                    <li><strong>This is a temporary password</strong> - You will be required to change it on your first
-                        login</li>
-                    <li>Keep this information <strong>confidential</strong></li>
-                    <li><strong>Never share</strong> your password with anyone</li>
-                    <li>If you didn't request this account, please contact support immediately</li>
-                </ul>
+            <!-- Footer -->
+            <div class="email-footer">
+                <p>&copy; {{ date('Y') }} JuanCharge. All rights reserved.</p>
+                <p>This is an automated administrative message. Please do not reply directly to this email.</p>
             </div>
-
-            <div class="divider"></div>
-
-            <!-- Login Button -->
-            <div style="text-align: center;">
-                <a href="{{ config('app.frontend_url', 'http://localhost:3000') }}/login" class="login-button">
-                    Access Portal Now →
-                </a>
-            </div>
-
-            <p style="margin-top: 30px; color: rgba(255, 255, 255, 0.7); font-size: 14px;">
-                If the button above doesn't work, copy and paste this URL into your browser:<br>
-                <strong style="color: #66bb6a;">{{ config('app.frontend_url', 'http://localhost:3000') }}/login</strong>
-            </p>
-
-            <div class="divider"></div>
-
-            <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px;">
-                Need help getting started? Contact our support team and we'll be happy to assist you.
-            </p>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p><strong>JuanCharge</strong> - Powering Your Journey ⚡</p>
-            <p>This is an automated message. Please do not reply to this email.</p>
-            <p style="margin-top: 15px; font-size: 12px; color: #adb5bd;">
-                © {{ date('Y') }} JuanCharge. All rights reserved.
-            </p>
         </div>
     </div>
 </body>
-
 </html>

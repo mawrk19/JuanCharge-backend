@@ -24,25 +24,32 @@ class VerifyCsrfToken extends Middleware
         'mobile/*',       // Non-prefixed fallback
     ];
 
-    /**
-     * Determine if the request has a URI that should pass through CSRF verification.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return bool
-     */
+    public function handle($request, \Closure $next)
+    {
+        // Debug logging for every request hitting this middleware
+        \Illuminate\Support\Facades\Log::info('VerifyCsrfToken Handle Hit:', [
+            'path' => $request->path(),
+            'method' => $request->method(),
+            'is_except' => $this->inExceptArray($request) ? 'yes' : 'no'
+        ]);
+
+        return parent::handle($request, $next);
+    }
+
     protected function inExceptArray($request)
     {
         // 1. Broad Nature-based bypass for APIs (Safe for mobile/stateless clients)
+        // We check for 'api/*' and 'auth/*' explicitly to cover all ground
         if (
+            $request->is('api/*') || 
+            $request->is('auth/*') ||
             $request->expectsJson() ||
-            $request->header('X-Requested-With') === 'XMLHttpRequest' ||
-            $request->is('api/*') ||
-            $request->is('auth/*')
+            $request->header('X-Requested-With') === 'XMLHttpRequest'
         ) {
             return true;
         }
 
-        // 2. Pattern-based fallback
+        // 2. Pattern-based exclusion from $except array
         foreach ($this->except as $except) {
             if ($except !== '/') {
                 $except = trim($except, '/');
@@ -53,17 +60,18 @@ class VerifyCsrfToken extends Middleware
             }
         }
 
-        // 3. Fallback to pattern check (should be covered by nature-based but for safety)
+        // 3. Last chance: check parent implementation
         if (parent::inExceptArray($request)) {
             return true;
         }
 
         // Debug logging for actual mismatches (if they still happen)
-        \Illuminate\Support\Facades\Log::warning('CSRF Mismatch Debug:', [
+        // This is critical for diagnosing why a 419 is still being returned
+        \Illuminate\Support\Facades\Log::error('CSRF Mismatch Blocked Request:', [
             'path' => $request->path(),
             'method' => $request->method(),
             'origin' => $request->headers->get('Origin'),
-            'accept' => $request->headers->get('Accept'),
+            'referer' => $request->headers->get('Referer'),
             'is_json' => $request->expectsJson() ? 'yes' : 'no'
         ]);
 

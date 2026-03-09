@@ -12,8 +12,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
 
+use App\Traits\SendsBrevoEmails;
+
 class MobileAuthController extends Controller
 {
+    use SendsBrevoEmails;
+
     /**
      * Mobile login for patron (kiosk) users
      * Generates a persistent token stored in the database
@@ -41,7 +45,7 @@ class MobileAuthController extends Controller
 
         // Generate a persistent device token (long-lived)
         $deviceToken = Str::random(80);
-        
+
         // Token expires in 90 days (for auto-login)
         $expiresAt = Carbon::now()->addDays(90);
 
@@ -55,7 +59,7 @@ class MobileAuthController extends Controller
 
         // Check if user has incomplete profile
         $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->contact_number);
-        
+
         $response = [
             'success' => true,
             'message' => 'Login successful',
@@ -250,23 +254,26 @@ class MobileAuthController extends Controller
 
         // Generate a 6-digit OTP
         $otp = (string) rand(100000, 999999);
-        
+
         // For local/dev testing, you can see it in logs
         // Cache it for 10 minutes
         Cache::put('otp_' . $identifier, $otp, now()->addMinutes(10));
 
-        // Send OTP via Brevo
-        $sentInfo = null;
+        // Send OTP via Email or SMS
         if ($isEmail) {
-            $this->sendBrevoEmail($identifier, $otp);
-            Log::info("OTP sent to email {$identifier}");
+            try {
+                \Illuminate\Support\Facades\Mail::to($identifier)->send(new \App\Mail\OtpEmail($otp));
+                Log::info("OTP sent via Laravel Mail to {$identifier}");
+            } catch (\Exception $e) {
+                Log::error("Failed to send OTP email: " . $e->getMessage());
+            }
         } else {
             // Convert to international format if needed (PH specific)
             $mobile = $identifier;
             if (str_starts_with($mobile, '0')) {
                 $mobile = '63' . substr($mobile, 1);
             }
-            $this->sendBrevoSms($mobile, $otp);
+            $this->sendBrevoSms($mobile, "Your JuanCharge verification code is: {$otp}");
             Log::info("OTP sent to mobile {$mobile}");
         }
 
@@ -307,7 +314,7 @@ class MobileAuthController extends Controller
 
             // Backdoor for testing (remove in production if strictness required)
             if ($code === '000000') {
-                 $cachedOtp = '000000';
+                $cachedOtp = '000000';
             }
 
             if (!$cachedOtp || $cachedOtp !== $code) {
@@ -323,7 +330,7 @@ class MobileAuthController extends Controller
             }
 
             $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
-            
+
             // Find or create user
             if ($isEmail) {
                 $user = KioskUser::where('email', $identifier)->first();
@@ -341,7 +348,7 @@ class MobileAuthController extends Controller
                     $user->contact_number = $identifier;
                 }
                 // Set basic defaults for new users
-                $user->name = 'New User'; 
+                $user->name = 'New User';
                 $user->first_name = '';
                 $user->last_name = '';
                 // Generate random password to satisfy DB constraint
@@ -350,7 +357,7 @@ class MobileAuthController extends Controller
 
             // Update verification timestamp (with safety check for missing columns)
             $columns = \Illuminate\Support\Facades\Schema::getColumnListing($user->getTable());
-            
+
             if ($isEmail && in_array('email_verified_at', $columns)) {
                 $user->email_verified_at = now();
             } elseif (!$isEmail && in_array('contact_number_verified_at', $columns)) {
@@ -364,11 +371,11 @@ class MobileAuthController extends Controller
             if (in_array('device_token', $columns)) {
                 $user->device_token = hash('sha256', $deviceToken);
             }
-            
+
             if (in_array('token_expires_at', $columns)) {
                 $user->token_expires_at = $expiresAt;
             }
-            
+
             $user->save();
 
             // Issue Sanctum Token for immediate API use
@@ -420,16 +427,16 @@ class MobileAuthController extends Controller
             $user = new KioskUser();
             $table = $user->getTable();
             $columns = \Illuminate\Support\Facades\Schema::getColumnListing($table);
-            
+
             $required = [
-                'device_token', 
-                'token_expires_at', 
-                'email_verified_at', 
+                'device_token',
+                'token_expires_at',
+                'email_verified_at',
                 'contact_number_verified_at'
             ];
 
             $missing = array_diff($required, $columns);
-            
+
             return response()->json([
                 'status' => 'ok',
                 'table' => $table,
@@ -440,77 +447,11 @@ class MobileAuthController extends Controller
                 'command_to_run' => empty($missing) ? null : 'php artisan migrate --force'
             ]);
         } catch (\Exception $e) {
-             return response()->json([
+            return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
             ]);
         }
     }
 
-    /**
-     * Send OTP via Brevo Email API
-     */
-    private function sendBrevoEmail($email, $otp)
-    {
-        $apiKey = config('services.brevo.key');
-        
-        if (!$apiKey) {
-            Log::error('Brevo API key not configured');
-            return;
-        }
-
-        $response = Http::withOptions(['verify' => false])->withHeaders([
-            'api-key' => $apiKey,
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json'
-        ])->post('https://api.brevo.com/v3/smtp/email', [
-            'sender' => [
-                'name' => config('app.name', 'JuanCharge'),
-                'email' => config('mail.from.address', 'no-reply@juancharge.com')
-            ],
-            'to' => [
-                ['email' => $email]
-            ],
-            'subject' => 'Your Login Verification Code',
-             'htmlContent' => "
-                <div style='font-family: Arial, sans-serif; padding: 20px; color: #333;'>
-                    <h2>Verification Code</h2>
-                    <p>Your OTP code is:</p>
-                    <h1 style='color: #4CAF50; font-size: 32px; letter-spacing: 5px;'>{$otp}</h1>
-                    <p>This code will expire in 10 minutes.</p>
-                </div>
-            "
-        ]);
-
-        if (!$response->successful()) {
-            Log::error('Brevo Email Error: ' . $response->body());
-        }
-    }
-
-    /**
-     * Send OTP via Brevo SMS API
-     */
-    private function sendBrevoSms($mobile, $otp)
-    {
-        $apiKey = config('services.brevo.key');
-
-        if (!$apiKey) {
-            Log::error('Brevo API key not configured');
-            return;
-        }
-
-        $response = Http::withOptions(['verify' => false])->withHeaders([
-            'api-key' => $apiKey,
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json'
-        ])->post('https://api.brevo.com/v3/transactionalSMS/sms', [
-            'sender' => 'JuanCharge', // Max 11 alphanumeric chars
-            'recipient' => $mobile,
-            'content' => "Your JuanCharge verification code is: {$otp}"
-        ]);
-
-        if (!$response->successful()) {
-            Log::error('Brevo SMS Error: ' . $response->body());
-        }
-    }
 }
