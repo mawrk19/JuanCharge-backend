@@ -20,7 +20,7 @@ class TestMailController extends Controller
         $user->id = 1; // Mock user id
 
         $verificationUrl = URL::temporarySignedRoute(
-            'lgu.verification.verify',
+            'lgu.email.verify',
             now()->addHour(),
             ['id' => $user->id, 'hash' => sha1($user->getEmailForVerification())]
         );
