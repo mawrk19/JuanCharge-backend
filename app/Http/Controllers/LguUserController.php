@@ -118,13 +118,13 @@ class LguUserController extends Controller
      */
     private function sendWelcomeEmail($user, $password)
     {
-        Log::info('Sending welcome email via Laravel Mail for LGU user: ' . $user->email);
+        Log::info('Queueing welcome email via Laravel Mail for LGU user: ' . $user->email);
         try {
-            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\WelcomeUser($user, $password));
-            Log::info('Welcome email successfully sent to: ' . $user->email);
+            \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
+            Log::info('Welcome email successfully queued to: ' . $user->email);
         } catch (\Exception $e) {
-            Log::error('Failed to send welcome email to ' . $user->email . ': ' . $e->getMessage());
-            throw new \Exception('Failed to send welcome email. Check logs for error details.');
+            Log::error('Failed to queue welcome email to ' . $user->email . ': ' . $e->getMessage());
+            throw new \Exception('Failed to queue welcome email. Check logs for error details.');
         }
     }
 
