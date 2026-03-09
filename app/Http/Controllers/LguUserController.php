@@ -8,6 +8,8 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use App\Mail\WelcomeLguUserMail;
+use Illuminate\Support\Facades\URL;
 
 use App\Traits\SendsBrevoEmails;
 
@@ -85,8 +87,15 @@ class LguUserController extends Controller
             $user = LguUser::create($validated);
             $user->load('lgu');
 
-            // Send welcome email with credentials
-            $this->sendWelcomeEmail($user, $plainPassword);
+            // Generate a signed URL for email verification
+            $verificationUrl = URL::temporarySignedRoute(
+                'lgu.verification.verify',
+                now()->addHour(),
+                ['id' => $user->id, 'hash' => sha1($user->getEmailForVerification())]
+            );
+
+            // Send welcome email with verification link
+            Mail::to($user->email)->send(new WelcomeLguUserMail($user, $verificationUrl));
 
             return response()->json([
                 'success' => true,
@@ -126,6 +135,31 @@ class LguUserController extends Controller
             Log::error('Failed to queue welcome email to ' . $user->email . ': ' . $e->getMessage());
             throw new \Exception('Failed to queue welcome email. Check logs for error details.');
         }
+    }
+
+    /**
+     * Verify the LGU user's email.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function verifyEmail(Request $request, $id)
+    {
+        if (! $request->hasValidSignature()) {
+            return redirect(env('FRONTEND_URL') . '/email-verification-failed');
+        }
+
+        $user = LguUser::findOrFail($id);
+
+        if ($user->hasVerifiedEmail()) {
+            return redirect(env('FRONTEND_URL') . '/email-already-verified');
+        }
+
+        $user->markEmailAsVerified();
+
+        // Here you can also log the user in, or redirect to a "set password" page
+        return redirect(env('FRONTEND_URL') . '/set-password?email=' . urlencode($user->email));
     }
 
     /**

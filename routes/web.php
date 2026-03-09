@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TestMailController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,5 +15,12 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return ['Laravel' => app()->version()];
 });
+
+Route::get('/test-lgu-mail', [TestMailController::class, 'sendTestLguWelcomeEmail']);
+
+Route::get('/lgu/email/verify/{id}/{hash}', [\App\Http\Controllers\LguUserController::class, 'verifyEmail'])
+    ->name('lgu.verification.verify');
+
+// require __DIR__.'/auth.php';

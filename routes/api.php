@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PointVoucherController;
 use App\Http\Controllers\PortActivationController;
 use App\Http\Controllers\RecyclingLogController;
+use App\Http\Controllers\Auth\PasswordSetupController;
 
 // Public routes
 Route::get('/', function () {
@@ -131,6 +132,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // New Recycling Analytics for Hardware Stats
     Route::get('/admin/analytics/recycling', [\App\Http\Controllers\Admin\RecyclingAnalyticsController::class, 'index']);
 });
+
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
+});
+
+Route::get('/lgu/email/verify/{id}/{hash}', [LguUserController::class, 'verifyEmail'])
+    ->name('lgu.verification.verify');
+
+Route::post('/lgu/set-password', [PasswordSetupController::class, 'setPassword']);
+
+Route::post('/lgu-users/register', [LguUserController::class, 'register']);
+Route::post('/kiosk-users/register', [KioskUserController::class, 'register']);
 
 Route::fallback(function () {
     return response()->json([

@@ -14,14 +14,8 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        'api/*',          // Broad exclusion for test
-        'api/auth/login',
-        'api/auth/logout',
-        'api/auth/register',
-        'api/auth/otp/*', // OTP endpoints bypass CSRF
-        'auth/otp/*',     // Non-prefixed fallback
-        'api/mobile/*',   // All mobile endpoints bypass CSRF
-        'mobile/*',       // Non-prefixed fallback
+        'lgu/email/verify/*',
+        'test-lgu-mail',
     ];
 
     public function handle($request, \Closure $next)

@@ -238,10 +238,10 @@ class KioskUserController extends Controller
 
             // Send welcome email
             try {
-                Log::info('Sending welcome email via Laravel Mail for registered kiosk user: ' . $user->email);
-                \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\WelcomeRegisteredKioskUser($user, $plainPassword));
+                Log::info('Queueing welcome email via Laravel Mail for registered kiosk user: ' . $user->email);
+                \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeRegisteredKioskUser($user, $plainPassword));
             } catch (\Exception $e) {
-                Log::error('Failed to send welcome email to registered kiosk user: ' . $e->getMessage());
+                Log::error('Failed to queue welcome email to registered kiosk user: ' . $e->getMessage());
                 // Don't fail registration if email fails
             }
 
