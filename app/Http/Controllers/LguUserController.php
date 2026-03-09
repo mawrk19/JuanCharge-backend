@@ -95,7 +95,13 @@ class LguUserController extends Controller
             );
 
             // Send welcome email with verification link
-            Mail::to($user->email)->queue(new WelcomeLguUserMail($user, $verificationUrl));
+            try {
+                Mail::to($user->email)->queue(new WelcomeLguUserMail($user, $verificationUrl));
+                Log::info('Welcome email successfully queued for LGU user: ' . $user->email);
+            } catch (\Exception $e) {
+                Log::error('Failed to queue welcome email for LGU user ' . $user->email . ': ' . $e->getMessage());
+                // Don't fail user creation if email fails
+            }
 
             return response()->json([
                 'success' => true,
