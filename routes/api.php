@@ -137,9 +137,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::get('/lgu/email/verify/{id}/{hash}', [LguUserController::class, 'verifyEmail'])
-    ->name('lgu.verification.verify');
-
 Route::post('/lgu/set-password', [PasswordSetupController::class, 'setPassword']);
 
 Route::post('/lgu-users/register', [LguUserController::class, 'register']);
