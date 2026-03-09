@@ -95,7 +95,7 @@ class LguUserController extends Controller
             );
 
             // Send welcome email with verification link
-            Mail::to($user->email)->send(new WelcomeLguUserMail($user, $verificationUrl));
+            Mail::to($user->email)->queue(new WelcomeLguUserMail($user, $verificationUrl));
 
             return response()->json([
                 'success' => true,
