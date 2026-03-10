@@ -23,13 +23,24 @@ Route::get('/test-lgu-mail', [TestMailController::class, 'sendTestLguWelcomeEmai
 
 Route::get('/test-simple-mail', function () {
     try {
+        // First try with current config
         Mail::raw('This is a test email from JuanCharge production server.', function ($message) {
             $message->to('gercee19@gmail.com')
                     ->subject('Test Email from JuanCharge');
         });
         return 'Simple test email sent successfully to gercee19@gmail.com';
     } catch (\Exception $e) {
-        return 'Error sending email: ' . $e->getMessage();
+        // If SMTP fails, try with log driver to test if it's a connection issue
+        try {
+            config(['mail.default' => 'log']);
+            Mail::raw('Test email logged - SMTP connection failed', function ($message) {
+                $message->to('gercee19@gmail.com')
+                        ->subject('Test Email Logged');
+            });
+            return 'SMTP failed but logging worked. Error: ' . $e->getMessage();
+        } catch (\Exception $logError) {
+            return 'Both SMTP and logging failed. SMTP Error: ' . $e->getMessage() . ' | Log Error: ' . $logError->getMessage();
+        }
     }
 });
 
