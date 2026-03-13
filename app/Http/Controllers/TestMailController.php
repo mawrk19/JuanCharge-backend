@@ -12,12 +12,18 @@ class TestMailController extends Controller
 {
     public function sendTestLguWelcomeEmail()
     {
-        $user = new LguUser([
-            'email' => 'gercee19@gmail.com',
-            'first_name' => 'Gercee',
-            'last_name' => 'Acedo',
-        ]);
-        $user->id = 1; // Mock user id
+        // Actually fetch the real first user from DB to satisfy the SerializesModels trait 
+        // on the Mailable class to stop the ModelNotFoundException.
+        $user = LguUser::first();
+
+        // If no user exists, let's complain, otherwise we fake an email address temporarily.
+        if (!$user) {
+            return "Error: No LguUser exists in the database. Please create one first before testing.";
+        }
+        
+        // Temporarily override the email for local testing
+        $user->email = 'gercee19@gmail.com';
+        $user->first_name = 'Gercee';
 
         $verificationUrl = URL::temporarySignedRoute(
             'lgu.email.verify',
