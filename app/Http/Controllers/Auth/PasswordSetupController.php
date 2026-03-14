@@ -20,7 +20,7 @@ class PasswordSetupController extends Controller
 
             $user = LguUser::where('email', $validated['email'])->first();
 
-            if (!$user || !$user->hasVerifiedEmail()) {
+            if (!$user || $user->status !== 'active') {
                 return response()->json(['message' => 'Invalid or unverified email.'], 400);
             }
 
