@@ -48,6 +48,15 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Check if the user's account is pending (e.g. email not clicked)
+        // Check property dynamically since User model might not have status but LguUser/KioskUser do
+        if (isset($user->status) && $user->status === 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account is pending. Please check your email and click the verification link to activate it.'
+            ], 403);
+        }
+
         // Create Sanctum token
         $token = $user->createToken('auth_token')->plainTextToken;
 

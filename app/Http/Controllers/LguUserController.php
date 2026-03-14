@@ -78,6 +78,7 @@ class LguUserController extends Controller
             // Auto-generate full name
             $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
             $validated['is_first_login'] = true;
+            $validated['status'] = 'pending'; // Account is invalid until verified
 
             // Generate a secure random password for the user
             $plainPassword = \Illuminate\Support\Str::random(10);
@@ -96,10 +97,19 @@ class LguUserController extends Controller
 
             // Send welcome email with verification link
             try {
-                Mail::to($user->email)->queue(new WelcomeLguUserMail($user, $verificationUrl));
-                Log::info('Welcome email successfully queued for LGU user: ' . $user->email);
+                // Generate HTML from the Mailable class
+                $mail = new WelcomeLguUserMail($user, $verificationUrl);
+                $htmlContent = $mail->render();
+                
+                // Use Brevo API instead of SMTP to avoid timeouts
+                $this->sendEmailViaBrevo(
+                    $user->email, 
+                    'Welcome to JuanCharge - Verify Your Email', 
+                    $htmlContent
+                );
+                Log::info('Welcome email successfully sent via Brevo API for LGU user: ' . $user->email);
             } catch (\Exception $e) {
-                Log::error('Failed to queue welcome email for LGU user ' . $user->email . ': ' . $e->getMessage());
+                Log::error('Failed to send welcome email for LGU user ' . $user->email . ': ' . $e->getMessage());
                 // Don't fail user creation if email fails
             }
 
@@ -158,11 +168,12 @@ class LguUserController extends Controller
 
         $user = LguUser::findOrFail($id);
 
-        if ($user->hasVerifiedEmail()) {
+        if ($user->status === 'active') {
             return redirect(env('FRONTEND_URL') . '/email-already-verified');
         }
 
-        $user->markEmailAsVerified();
+        $user->status = 'active';
+        $user->save();
 
         // Here you can also log the user in, or redirect to a "set password" page
         return redirect(env('FRONTEND_URL') . '/set-password?email=' . urlencode($user->email));

@@ -35,6 +35,7 @@ class LguUser extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'is_first_login',
+        'status',
     ];
 
     /**
