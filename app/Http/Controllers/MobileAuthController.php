@@ -262,10 +262,12 @@ class MobileAuthController extends Controller
         // Send OTP via Email or SMS
         if ($isEmail) {
             try {
-                \Illuminate\Support\Facades\Mail::to($identifier)->send(new \App\Mail\OtpEmail($otp));
-                Log::info("OTP sent via Laravel Mail to {$identifier}");
+                $mail = new \App\Mail\OtpEmail($otp);
+                $htmlContent = $mail->render();
+                $this->sendEmailViaBrevo($identifier, 'JuanCharge - Your Verification Code', $htmlContent);
+                Log::info("OTP sent via Brevo API to {$identifier}");
             } catch (\Exception $e) {
-                Log::error("Failed to send OTP email: " . $e->getMessage());
+                Log::error("Failed to send OTP email via Brevo: " . $e->getMessage());
             }
         } else {
             // Convert to international format if needed (PH specific)

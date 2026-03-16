@@ -31,7 +31,7 @@ class OtpEmail extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        return $this->view('emails.otp-email')
+        return $this->markdown('emails.otp-email')
             ->subject('JuanCharge - Your Verification Code');
     }
 }

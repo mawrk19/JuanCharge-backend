@@ -84,12 +84,18 @@ class KioskUserController extends Controller
             $user = KioskUser::create($validated);
 
             // Send welcome email with credentials
-            // try {
-            //     Mail::to($user->email)->send(new WelcomeKioskUser($user, $plainPassword));
-            // } catch (\Exception $e) {
-            //     Log::error('Failed to send welcome email to kiosk user: ' . $e->getMessage());
-            //     // Don't fail the user creation if email fails
-            // }
+            try {
+                $plainPassword = $validated['password'] ?? null; // If they provided one
+                if ($plainPassword) {
+                    $mail = new WelcomeKioskUser($user, $plainPassword);
+                    $htmlContent = $mail->render();
+                    $this->sendEmailViaBrevo($user->email, 'Welcome to JuanCharge - Your Kiosk Account', $htmlContent);
+                    Log::info('Welcome email successfully sent via Brevo API for kiosk user: ' . $user->email);
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send welcome email to kiosk user via Brevo: ' . $e->getMessage());
+                // Don't fail the user creation if email fails
+            }
 
             return response()->json([
                 'success' => true,
@@ -238,10 +244,12 @@ class KioskUserController extends Controller
 
             // Send welcome email
             try {
-                Log::info('Queueing welcome email via Laravel Mail for registered kiosk user: ' . $user->email);
-                \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeRegisteredKioskUser($user, $plainPassword));
+                $mail = new \App\Mail\WelcomeRegisteredKioskUser($user, $plainPassword);
+                $htmlContent = $mail->render();
+                $this->sendEmailViaBrevo($user->email, 'Welcome to JuanCharge! Your Account is Ready', $htmlContent);
+                Log::info('Welcome email successfully sent via Brevo API for registered kiosk user: ' . $user->email);
             } catch (\Exception $e) {
-                Log::error('Failed to queue welcome email to registered kiosk user: ' . $e->getMessage());
+                Log::error('Failed to send welcome email to registered kiosk user via Brevo: ' . $e->getMessage());
                 // Don't fail registration if email fails
             }
 

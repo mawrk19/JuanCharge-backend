@@ -35,6 +35,6 @@ class NewPasswordMail extends Mailable implements ShouldQueue
     public function build()
     {
         return $this->subject('Your New Password - JuanCharge')
-                    ->view('emails.new-password');
+                    ->markdown('emails.new-password');
     }
 }

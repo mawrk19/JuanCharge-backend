@@ -33,6 +33,6 @@ class PasswordResetMail extends Mailable implements ShouldQueue
     public function build()
     {
         return $this->subject('Password Reset Request - JuanCharge')
-                    ->view('emails.password-reset');
+                    ->markdown('emails.password-reset');
     }
 }

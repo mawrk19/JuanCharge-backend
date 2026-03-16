@@ -34,7 +34,7 @@ class WelcomeRegisteredKioskUser extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        return $this->view('emails.welcome-registered-kiosk-user')
+        return $this->markdown('emails.welcome-registered-kiosk-user')
                     ->subject('Welcome to JuanCharge! Your Account is Ready')
                     ->with([
                         'userName' => $this->user->name,
