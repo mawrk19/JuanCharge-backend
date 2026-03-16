@@ -9,9 +9,11 @@ use App\Models\User;
 use App\Models\LguUser;
 use Illuminate\Support\Facades\Auth;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use App\Traits\SendsBrevoEmails;
 
 class AuthController extends Controller
 {
+    use SendsBrevoEmails;
     /**
      * Get a JWT via given credentials.
      *
@@ -376,7 +378,20 @@ class AuthController extends Controller
             $userName = $user->name ?? $user->email;
 
             // Send email
-            \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\PasswordResetMail($resetLink, $userName));
+            try {
+                $mail = new \App\Mail\PasswordResetMail($resetLink, $userName);
+                $htmlContent = $mail->render();
+                
+                $this->sendEmailViaBrevo(
+                    $email, 
+                    'Password Reset Request - JuanCharge', 
+                    $htmlContent
+                );
+                \Illuminate\Support\Facades\Log::info('Password reset email successfully sent via Brevo API for user: ' . $email);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send password reset email via Brevo for user ' . $email . ': ' . $e->getMessage());
+                throw new \Exception('Failed to send password reset email. Check logs.');
+            }
 
             return response()->json([
                 'success' => true,
@@ -475,7 +490,20 @@ class AuthController extends Controller
             $userName = $user->name ?? null;
 
             // Send new password via email
-            \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\NewPasswordMail($newPassword, $email, $userName));
+            try {
+                $mail = new \App\Mail\NewPasswordMail($newPassword, $email, $userName);
+                $htmlContent = $mail->render();
+                
+                $this->sendEmailViaBrevo(
+                    $email, 
+                    'Your New Password - JuanCharge', 
+                    $htmlContent
+                );
+                \Illuminate\Support\Facades\Log::info('New password email successfully sent via Brevo API for user: ' . $email);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send new password email via Brevo for user ' . $email . ': ' . $e->getMessage());
+                // We do not throw an exception here because the user's password HAS been successfully reset and saved
+            }
 
             return response()->json([
                 'success' => true,
