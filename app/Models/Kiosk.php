@@ -40,7 +40,7 @@ class Kiosk extends Model
      */
     public function assignedTo()
     {
-        return $this->belongsTo(LguUser::class, 'assigned_to', 'id');
+        return $this->belongsTo(User::class, 'assigned_to', 'id');
     }
 
     /**

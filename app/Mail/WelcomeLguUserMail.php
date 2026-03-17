@@ -2,7 +2,7 @@
 
 namespace App\Mail;
 
-use App\Models\LguUser;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -12,7 +12,7 @@ class WelcomeLguUserMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    public LguUser $user;
+    public User $user;
     public string $verificationUrl;
 
     /**
@@ -20,7 +20,7 @@ class WelcomeLguUserMail extends Mailable implements ShouldQueue
      *
      * @return void
      */
-    public function __construct(LguUser $user, string $verificationUrl)
+    public function __construct(User $user, string $verificationUrl)
     {
         $this->user = $user;
         $this->verificationUrl = $verificationUrl;

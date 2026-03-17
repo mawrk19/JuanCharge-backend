@@ -37,7 +37,7 @@ class ChargingSession extends Model
      */
     public function user()
     {
-        return $this->belongsTo(KioskUser::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**

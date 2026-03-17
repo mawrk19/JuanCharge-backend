@@ -30,7 +30,7 @@ class Lgu extends Model
 
     public function users()
     {
-        return $this->hasMany(LguUser::class, 'lgu_id');
+        return $this->hasMany(User::class, 'lgu_id');
     }
 
     public function kiosks()

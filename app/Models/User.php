@@ -8,10 +8,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable implements JWTSubject
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -19,12 +20,21 @@ class User extends Authenticatable implements JWTSubject
      * @var array<int, string>
      */
     protected $fillable = [
+        'role_id',
+        'lgu_id',
         'name',
         'first_name',
         'last_name',
-        'phone_number',
         'email',
+        'phone_number',
         'password',
+        'points_balance',
+        'points_total',
+        'points_used',
+        'is_first_login',
+        'status',
+        'device_token',
+        'token_expires_at',
     ];
 
     /**
@@ -35,6 +45,7 @@ class User extends Authenticatable implements JWTSubject
     protected $hidden = [
         'password',
         'remember_token',
+        'device_token',
     ];
 
     /**
@@ -44,28 +55,70 @@ class User extends Authenticatable implements JWTSubject
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'contact_number_verified_at' => 'datetime',
+        'token_expires_at' => 'datetime',
+        'is_first_login' => 'boolean',
     ];
 
-   
     /**
-     * Get the identifier that will be stored in the subject claim of the JWT.
-     *
-     * @return mixed
+     * Relationships
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function lgu()
+    {
+        return $this->belongsTo(Lgu::class);
+    }
+
+    public function sessions()
+    {
+        return $this->hasMany(ChargingSession::class);
+    }
+
+    public function recyclingLogs()
+    {
+        return $this->hasMany(RecyclingLog::class);
+    }
+
+    /**
+     * Helpers for roles
+     */
+    public function isSuperAdmin()
+    {
+        return $this->role_id === Role::SUPER_ADMIN;
+    }
+
+    public function isLguAdmin()
+    {
+        return $this->role_id === Role::LGU_ADMIN;
+    }
+
+    public function isLguStaff()
+    {
+        return $this->role_id === Role::LGU_STAFF;
+    }
+
+    public function isKioskUser()
+    {
+        return $this->role_id === Role::KIOSK_USER;
+    }
+
+    /**
+     * JWT Implementation
      */
     public function getJWTIdentifier()
     {
         return $this->getKey();
     }
 
-    /**
-     * Return a key value array, containing any custom claims to be added to the JWT.
-     *
-     * @return array
-     */
     public function getJWTCustomClaims()
     {
-        return [];
+        return [
+            'role' => $this->role ? $this->role->slug : null,
+            'lgu_id' => $this->lgu_id,
+        ];
     }
-
-    
 }

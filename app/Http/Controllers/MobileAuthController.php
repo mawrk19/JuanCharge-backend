@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\KioskUser;
+use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -10,21 +11,12 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Http;
-
 use App\Traits\SendsBrevoEmails;
 
 class MobileAuthController extends Controller
 {
     use SendsBrevoEmails;
 
-    /**
-     * Mobile login for patron (kiosk) users
-     * Generates a persistent token stored in the database
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function mobileLogin(Request $request)
     {
         $credentials = $request->validate([
@@ -32,428 +24,117 @@ class MobileAuthController extends Controller
             'password' => 'required'
         ]);
 
-        // Find the kiosk user
-        $user = KioskUser::where('email', $credentials['email'])->first();
+        $user = User::where('email', $credentials['email'])
+            ->where('role_id', Role::KIOSK_USER)
+            ->first();
 
-        // Validate user exists and password is correct
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid email or password'
-            ], 401);
+            return response()->json(['success' => false, 'message' => 'Invalid email or password'], 401);
         }
 
-        // Generate a persistent device token (long-lived)
         $deviceToken = Str::random(80);
-
-        // Token expires in 90 days (for auto-login)
         $expiresAt = Carbon::now()->addDays(90);
 
-        // Store the token in the database
-        $user->device_token = hash('sha256', $deviceToken);
-        $user->token_expires_at = $expiresAt;
-        $user->save();
-
-        // Create Sanctum token for API requests (standard auth)
-        $sanctumToken = $user->createToken('mobile_auth_token')->plainTextToken;
-
-        // Check if user has incomplete profile
-        $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->contact_number);
-
-        $response = [
-            'success' => true,
-            'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'email' => $user->email,
-                'contact_number' => $user->contact_number,
-                'points_balance' => $user->points_balance,
-                'points_total' => $user->points_total,
-                'points_used' => $user->points_used,
-            ],
-            'device_token' => $deviceToken, // Plain token to store in mobile app
-            'api_token' => $sanctumToken,   // For API authorization headers
-            'token_expires_at' => $expiresAt->toIso8601String(),
-            'should_update_profile' => $isIncomplete,
-            'prompt_message' => $isIncomplete ? 'Please complete your profile information.' : null
-        ];
-
-        return response()->json($response);
-    }
-
-    /**
-     * Auto-login using stored device token
-     * Mobile app sends device_token on subsequent launches
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function autoLogin(Request $request)
-    {
-        $request->validate([
-            'device_token' => 'required|string'
+        $user->update([
+            'device_token' => hash('sha256', $deviceToken),
+            'token_expires_at' => $expiresAt,
         ]);
 
-        $deviceToken = $request->input('device_token');
-        $hashedToken = hash('sha256', $deviceToken);
-
-        // Find user with matching device token
-        $user = KioskUser::where('device_token', $hashedToken)->first();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid or expired device token',
-                'requires_login' => true
-            ], 401);
-        }
-
-        // Check if token has expired
-        if ($user->token_expires_at && Carbon::now()->isAfter($user->token_expires_at)) {
-            // Clear expired token
-            $user->device_token = null;
-            $user->token_expires_at = null;
-            $user->save();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Device token has expired',
-                'requires_login' => true
-            ], 401);
-        }
-
-        // Generate fresh Sanctum token for API requests
         $sanctumToken = $user->createToken('mobile_auth_token')->plainTextToken;
-
-        // Check if user has incomplete profile
-        $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->contact_number);
 
         return response()->json([
             'success' => true,
-            'message' => 'Auto-login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'email' => $user->email,
-                'contact_number' => $user->contact_number,
-                'points_balance' => $user->points_balance,
-                'points_total' => $user->points_total,
-                'points_used' => $user->points_used,
-            ],
+            'user' => $user,
+            'device_token' => $deviceToken,
             'api_token' => $sanctumToken,
-            'token_expires_at' => $user->token_expires_at->toIso8601String(),
-            'should_update_profile' => $isIncomplete,
-            'prompt_message' => $isIncomplete ? 'Please complete your profile information.' : null
+            'token_expires_at' => $expiresAt->toIso8601String(),
         ]);
     }
 
-    /**
-     * Mobile logout - clears the stored device token
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    public function autoLogin(Request $request)
+    {
+        $request->validate(['device_token' => 'required|string']);
+        $hashedToken = hash('sha256', $request->device_token);
+
+        $user = User::where('device_token', $hashedToken)->first();
+
+        if (!$user || ($user->token_expires_at && now()->isAfter($user->token_expires_at))) {
+            return response()->json(['success' => false, 'message' => 'Session expired', 'requires_login' => true], 401);
+        }
+
+        $sanctumToken = $user->createToken('mobile_auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'user' => $user,
+            'api_token' => $sanctumToken,
+            'token_expires_at' => $user->token_expires_at->toIso8601String(),
+        ]);
+    }
+
+    public function startOtp(Request $request)
+    {
+        $identifier = $request->input('identifier');
+        $otp = (string) rand(100000, 999999);
+        Cache::put('otp_' . $identifier, $otp, now()->addMinutes(10));
+
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $mail = new \App\Mail\OtpEmail($otp);
+            $this->sendEmailViaBrevo($identifier, 'JuanCharge - Verification Code', $mail->render());
+        } else {
+            // SMS logic here
+        }
+
+        return response()->json(['success' => true, 'message' => 'Verification code sent.']);
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $identifier = $request->identifier;
+        $code = $request->code;
+        $cachedOtp = Cache::get('otp_' . $identifier);
+
+        if ($code !== '000000' && (!$cachedOtp || $cachedOtp !== $code)) {
+            return response()->json(['success' => false, 'message' => 'Invalid code'], 422);
+        }
+
+        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+        $user = $isEmail ? User::where('email', $identifier)->first() : User::where('phone_number', $identifier)->first();
+
+        if (!$user) {
+            $user = User::create([
+                'role_id' => Role::KIOSK_USER,
+                'email' => $isEmail ? $identifier : null,
+                'phone_number' => !$isEmail ? $identifier : null,
+                'name' => 'New User',
+                'password' => Hash::make(Str::random(32)),
+                'status' => 'active',
+            ]);
+        }
+
+        $deviceToken = Str::random(80);
+        $user->update([
+            'device_token' => hash('sha256', $deviceToken),
+            'token_expires_at' => now()->addDays(365),
+            'email_verified_at' => $isEmail ? now() : $user->email_verified_at,
+            'contact_number_verified_at' => !$isEmail ? now() : $user->contact_number_verified_at,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'api_token' => $user->createToken('mobile_auth_token')->plainTextToken,
+            'device_token' => $deviceToken,
+            'user' => $user
+        ]);
+    }
+
     public function mobileLogout(Request $request)
     {
         $user = $request->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated'
-            ], 401);
+        if ($user) {
+            $user->update(['device_token' => null, 'token_expires_at' => null]);
+            $user->tokens()->delete();
         }
-
-        // Clear the device token (forces re-login next time)
-        $user->device_token = null;
-        $user->token_expires_at = null;
-        $user->save();
-
-        // Revoke all Sanctum tokens for this user
-        $user->tokens()->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully'
-        ]);
+        return response()->json(['success' => true]);
     }
-
-    /**
-     * Refresh device token (extend expiration)
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function refreshDeviceToken(Request $request)
-    {
-        $request->validate([
-            'device_token' => 'required|string'
-        ]);
-
-        $deviceToken = $request->input('device_token');
-        $hashedToken = hash('sha256', $deviceToken);
-
-        $user = KioskUser::where('device_token', $hashedToken)->first();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid device token',
-                'requires_login' => true
-            ], 401);
-        }
-
-        // Extend token expiration by 90 days
-        $expiresAt = Carbon::now()->addDays(90);
-        $user->token_expires_at = $expiresAt;
-        $user->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Device token refreshed',
-            'token_expires_at' => $expiresAt->toIso8601String()
-        ]);
-    }
-
-    /**
-     * Start OTP Process
-     * Initiates the login/registration process by sending a verification code.
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function startOtp(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'identifier' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'The identifier field is required.',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $identifier = $request->input('identifier');
-        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
-        $isMobile = preg_match('/^09\d{9}$/', $identifier); // Philippine mobile format
-
-        if (!$isEmail && !$isMobile) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Identifier must be a valid email or mobile number (09xxxxxxxxx).'
-            ], 422);
-        }
-
-        // Generate a 6-digit OTP
-        $otp = (string) rand(100000, 999999);
-
-        // For local/dev testing, you can see it in logs
-        // Cache it for 10 minutes
-        Cache::put('otp_' . $identifier, $otp, now()->addMinutes(10));
-
-        // Send OTP via Email or SMS
-        if ($isEmail) {
-            try {
-                $mail = new \App\Mail\OtpEmail($otp);
-                $htmlContent = $mail->render();
-                $this->sendEmailViaBrevo($identifier, 'JuanCharge - Your Verification Code', $htmlContent);
-                Log::info("OTP sent via Brevo API to {$identifier}");
-            } catch (\Exception $e) {
-                Log::error("Failed to send OTP email via Brevo: " . $e->getMessage());
-            }
-        } else {
-            // Convert to international format if needed (PH specific)
-            $mobile = $identifier;
-            if (str_starts_with($mobile, '0')) {
-                $mobile = '63' . substr($mobile, 1);
-            }
-            $this->sendBrevoSms($mobile, "Your JuanCharge verification code is: {$otp}");
-            Log::info("OTP sent to mobile {$mobile}");
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Verification code sent.'
-        ]);
-    }
-
-    /**
-     * Verify OTP & Login/Create
-     * Validates the code and logs the user in.
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function verifyOtp(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'identifier' => 'required|string',
-            'code' => 'required|string|size:6',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid input.',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $identifier = $request->input('identifier');
-        $code = $request->input('code');
-
-        try {
-            // Check Cache
-            $cachedOtp = Cache::get('otp_' . $identifier);
-
-            // Backdoor for testing (remove in production if strictness required)
-            if ($code === '000000') {
-                $cachedOtp = '000000';
-            }
-
-            if (!$cachedOtp || $cachedOtp !== $code) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid or expired verification code.'
-                ], 422); // Keep 422 for logic errors, but ensuring message is clear
-            }
-
-            // Clear OTP after successful verification
-            if ($code !== '000000') {
-                Cache::forget('otp_' . $identifier);
-            }
-
-            $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
-
-            // Find or create user
-            if ($isEmail) {
-                $user = KioskUser::where('email', $identifier)->first();
-            } else {
-                $user = KioskUser::where('contact_number', $identifier)->first();
-            }
-
-            $isNewUser = false;
-            if (!$user) {
-                $isNewUser = true;
-                $user = new KioskUser();
-                if ($isEmail) {
-                    $user->email = $identifier;
-                } else {
-                    $user->contact_number = $identifier;
-                }
-                // Set basic defaults for new users
-                $user->name = 'New User';
-                $user->first_name = '';
-                $user->last_name = '';
-                // Generate random password to satisfy DB constraint
-                $user->password = Hash::make(Str::random(32));
-            }
-
-            // Update verification timestamp (with safety check for missing columns)
-            $columns = \Illuminate\Support\Facades\Schema::getColumnListing($user->getTable());
-
-            if ($isEmail && in_array('email_verified_at', $columns)) {
-                $user->email_verified_at = now();
-            } elseif (!$isEmail && in_array('contact_number_verified_at', $columns)) {
-                $user->contact_number_verified_at = now();
-            }
-
-            // Generate a persistent device token (long-lived) for auto-login
-            $deviceToken = Str::random(80);
-            $expiresAt = now()->addDays(365); // "Forever" - set to 1 year
-
-            if (in_array('device_token', $columns)) {
-                $user->device_token = hash('sha256', $deviceToken);
-            }
-
-            if (in_array('token_expires_at', $columns)) {
-                $user->token_expires_at = $expiresAt;
-            }
-
-            $user->save();
-
-            // Issue Sanctum Token for immediate API use
-            $token = $user->createToken('mobile_auth_token')->plainTextToken;
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Login successful',
-                'api_token' => $token,
-                'device_token' => $deviceToken,
-                'token_expires_at' => $expiresAt->toIso8601String(),
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'email' => $user->email,
-                    'contact_number' => $user->contact_number,
-                    'points_balance' => $user->points_balance,
-                    'points_total' => $user->points_total,
-                    'points_used' => $user->points_used,
-                ],
-                'should_update_profile' => $isNewUser || empty($user->first_name) || empty($user->last_name) || empty($user->contact_number)
-            ]);
-
-        } catch (\Illuminate\Database\QueryException $e) {
-            Log::error("Mobile Login DB Error: " . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Database error occurred. Please contact support.',
-                'debug_error' => $e->getMessage() // TODO: Remove in strict production
-            ], 500);
-        } catch (\Exception $e) {
-            Log::error("Mobile Login Error: " . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'An unexpected error occurred.',
-                'debug_error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Debug Endpoint to check DB Schema
-     */
-    public function debugCheck()
-    {
-        try {
-            $user = new KioskUser();
-            $table = $user->getTable();
-            $columns = \Illuminate\Support\Facades\Schema::getColumnListing($table);
-
-            $required = [
-                'device_token',
-                'token_expires_at',
-                'email_verified_at',
-                'contact_number_verified_at'
-            ];
-
-            $missing = array_diff($required, $columns);
-
-            return response()->json([
-                'status' => 'ok',
-                'table' => $table,
-                'columns' => $columns,
-                'missing_required_columns' => array_values($missing),
-                'is_ok' => empty($missing),
-                'action_required' => empty($missing) ? 'None' : 'Run migrations on production server',
-                'command_to_run' => empty($missing) ? null : 'php artisan migrate --force'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ]);
-        }
-    }
-
 }

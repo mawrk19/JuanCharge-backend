@@ -33,6 +33,6 @@ class PointVoucher extends Model
 
     public function assignedTo()
     {
-        return $this->belongsTo(KioskUser::class, 'claimed_by');
+        return $this->belongsTo(User::class, 'claimed_by');
     }
 }

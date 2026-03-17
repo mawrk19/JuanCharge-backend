@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChargingSession;
-use App\Models\KioskUser;
+use App\Models\User;
 use App\Models\PointsTransaction;
 use App\Models\RecyclingLog;
 use Illuminate\Http\Request;
@@ -665,7 +665,7 @@ class ChargingController extends Controller
             $co2Saved = $totalEnergyKwh * 0.5;
 
             // Safeguard: Ensure points_total is at least as much as balance
-            if (($user instanceof \App\Models\KioskUser) && ($user->points_balance > $user->points_total)) {
+            if (($user instanceof \App\Models\User) && ($user->points_balance > $user->points_total)) {
                 $user->points_total = $user->points_balance;
                 $user->save();
             }
@@ -675,8 +675,8 @@ class ChargingController extends Controller
 
             // Calculate rank if user is a patron
             $rank = '-';
-            if ($user instanceof \App\Models\KioskUser) {
-                $rank = \App\Models\KioskUser::where('points_total', '>', $user->points_total)->count() + 1;
+            if ($user instanceof \App\Models\User) {
+                $rank = \App\Models\User::where('points_total', '>', $user->points_total)->count() + 1;
             }
 
             return response()->json([
@@ -735,7 +735,7 @@ class ChargingController extends Controller
                     ->groupBy('user_id');
 
                 // Combine rankings
-                $rankingsRaw = KioskUser::leftJoinSub($earnings, 'earnings', function ($join) {
+                $rankingsRaw = User::where("role_id", \App\Models\Role::KIOSK_USER)->leftJoinSub($earnings, 'earnings', function ($join) {
                     $join->on('kiosk_users.id', '=', 'earnings.user_id');
                 })
                     ->leftJoinSub($weights, 'weights', function ($join) {
@@ -791,7 +791,7 @@ class ChargingController extends Controller
                     $user->save();
                 }
 
-                $rankings = KioskUser::orderBy('points_total', 'desc')
+                $rankings = User::where("role_id", \App\Models\Role::KIOSK_USER)->orderBy('points_total', 'desc')
                     ->limit(10)
                     ->get()
                     ->map(function ($u, $index) {
@@ -804,7 +804,7 @@ class ChargingController extends Controller
                         ];
                     });
 
-                $userRank = KioskUser::where('points_total', '>', $user->points_total)->count() + 1;
+                $userRank = User::where("role_id", \App\Models\Role::KIOSK_USER)->where('points_total', '>', $user->points_total)->count() + 1;
                 $userPoints = (int) $user->points_total;
                 $userRecycled = (float) ($user->total_recyclables_weight ?? 0);
             }
@@ -814,7 +814,7 @@ class ChargingController extends Controller
             if ($userRank > 10) {
                 $thresholdQuery = $startDate
                     ? PointsTransaction::where('transaction_type', 'earned')->where('created_at', '>=', $startDate)->select(DB::raw('SUM(points) as p'))->groupBy('user_id')->orderBy('p', 'desc')
-                    : KioskUser::orderBy('points_total', 'desc')->select('points_total as p');
+                    : User::where("role_id", \App\Models\Role::KIOSK_USER)->orderBy('points_total', 'desc')->select('points_total as p');
 
                 $top10Threshold = $thresholdQuery->skip(9)->take(1)->value('p') ?? 100;
                 $percentToRank = min(100, round(($userPoints / max(1, $top10Threshold)) * 100));
@@ -1056,7 +1056,7 @@ class ChargingController extends Controller
                 $userId = str_replace('user_', '', $userId);
             }
 
-            $user = \App\Models\KioskUser::find($userId);
+            $user = \App\Models\User::find($userId);
             // Fallback: search by email or username if needed, but ID is safest. 
 
             if (!$user) {

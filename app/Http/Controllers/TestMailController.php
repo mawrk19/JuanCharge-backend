@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeLguUserMail;
-use App\Models\LguUser;
+use App\Models\User;
 use Illuminate\Support\Facades\URL;
 
 class TestMailController extends Controller
@@ -14,7 +14,7 @@ class TestMailController extends Controller
     {
         // Actually fetch the real first user from DB to satisfy the SerializesModels trait 
         // on the Mailable class to stop the ModelNotFoundException.
-        $user = LguUser::first();
+        $user = User::first();
 
         // If no user exists, let's complain, otherwise we fake an email address temporarily.
         if (!$user) {

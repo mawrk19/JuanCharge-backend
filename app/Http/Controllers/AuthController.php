@@ -2,23 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\KioskUser;
+use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
-use App\Models\LguUser;
 use Illuminate\Support\Facades\Auth;
-use Tymon\JWTAuth\Facades\JWTAuth;
 use App\Traits\SendsBrevoEmails;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     use SendsBrevoEmails;
+
     /**
-     * Get a JWT via given credentials.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * Unified Login for all users
      */
     public function login(Request $request)
     {
@@ -27,20 +24,7 @@ class AuthController extends Controller
             'password' => 'required'
         ]);
 
-        // Try to find user in admin users table first
-        $user = User::where('email', $credentials['email'])->first();
-        $userType = 'admin';
-
-        // If not found, check LGU users table
-        if (!$user) {
-            $user = LguUser::where('email', $credentials['email'])->first();
-            $userType = 'lgu_user';
-        }
-
-        if (!$user) {
-            $user = KioskUser::where('email', $credentials['email'])->first();
-            $userType = 'kiosk_user';
-        }
+        $user = User::with('role')->where('email', $credentials['email'])->first();
 
         // Validate user exists and password is correct
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
@@ -50,9 +34,8 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Check if the user's account is pending (e.g. email not clicked)
-        // Check property dynamically since User model might not have status but LguUser/KioskUser do
-        if (isset($user->status) && $user->status === 'pending') {
+        // Check if the user's account is pending
+        if ($user->status === 'pending') {
             return response()->json([
                 'success' => false,
                 'message' => 'Your account is pending. Please check your email and click the verification link to activate it.'
@@ -67,21 +50,20 @@ class AuthController extends Controller
             'success' => true,
             'user' => $user,
             'token' => $token,
-            'user_type' => $userType,
+            'user_type' => $user->role ? $user->role->slug : 'unknown',
             'should_update_profile' => false,
             'prompt_message' => null
         ];
 
-        // Add first login flag for LGU users
-        if ($userType === 'lgu_user' && $user->is_first_login) {
+        // First login logic
+        if ($user->is_first_login) {
             $response['should_update_profile'] = true;
-            $response['is_first_login'] = true;
             $response['prompt_message'] = 'Welcome! Please update your profile and change your password for security.';
         }
 
-        // Check if kiosk user has incomplete profile
-        if ($userType === 'kiosk_user') {
-            $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->contact_number);
+        // Profile completeness check for kiosk users
+        if ($user->isKioskUser()) {
+            $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->phone_number);
             if ($isIncomplete) {
                 $response['should_update_profile'] = true;
                 $response['prompt_message'] = 'Please complete your profile information.';
@@ -93,8 +75,6 @@ class AuthController extends Controller
 
     /**
      * Get the authenticated User.
-     *
-     * @return \Illuminate\Http\JsonResponse
      */
     public function me()
     {
@@ -109,43 +89,15 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'user' => $user
+            'user' => $user->load('role', 'lgu')
         ]);
     }
 
-    /**
-     * Validate if token is still valid
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function validateToken()
-    {
-        $user = auth()->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token is invalid or expired',
-                'valid' => false
-            ], 401);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Token is valid',
-            'valid' => true,
-            'user' => $user
-        ]);
-    }
-
-    /**
-     * Log the user out (Invalidate the token).
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function logout()
     {
-        auth()->logout();
+        if (auth()->user()) {
+            auth()->user()->tokens()->delete();
+        }
 
         return response()->json([
             'success' => true,
@@ -153,69 +105,24 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Refresh a token.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function refresh()
-    {
-        return $this->respondWithToken(auth()->refresh());
-    }
-
-    /**
-     * Get the token array structure.
-     *
-     * @param  string $token
-     * @return \Illuminate\Http\JsonResponse
-     */
-    protected function respondWithToken($token)
-    {
-        return response()->json([
-            'success' => true,
-            'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth()->factory()->getTTL() * 60,
-            'user' => auth()->user()
-        ]);
-    }
-
-    /**
-     * Update authenticated user's profile information
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function updateProfile(Request $request)
     {
         try {
             $user = auth()->user();
 
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            // Determine the table name based on user type
-            $tableName = $user->getTable();
-
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
-                'email' => 'nullable|email|max:255|unique:' . $tableName . ',email,' . $user->id,
+                'email' => 'nullable|email|max:255|unique:users,email,' . $user->id,
                 'phone_number' => 'nullable|string|max:15',
             ]);
 
-            // Auto-generate name if first_name and last_name are provided
             if (isset($validated['first_name']) && isset($validated['last_name'])) {
                 $validated['name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
             }
 
-            // Mark first login as complete for LGU users
-            if ($user instanceof \App\Models\LguUser && $user->is_first_login) {
+            if ($user->is_first_login) {
                 $validated['is_first_login'] = false;
             }
 
@@ -227,12 +134,6 @@ class AuthController extends Controller
                 'user' => $user->fresh()
             ], 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -242,114 +143,12 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * Change authenticated user's password
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function changePassword(Request $request)
-    {
-        try {
-            $user = auth()->user();
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            $validated = $request->validate([
-                'current_password' => 'required|string',
-                'new_password' => 'required|string|min:6|confirmed',
-            ]);
-
-            // Verify current password
-            if (!Hash::check($validated['current_password'], $user->password)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Current password is incorrect'
-                ], 401);
-            }
-
-            // Check if new password is same as current
-            if (Hash::check($validated['new_password'], $user->password)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'New password must be different from current password'
-                ], 422);
-            }
-
-            // Update password
-            $user->password = Hash::make($validated['new_password']);
-            $user->save();
-
-            // Revoke all existing tokens for security
-            $user->tokens()->delete();
-
-            // Create new token
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Password changed successfully. Please login with your new password.',
-                'token' => $token
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to change password',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Send password reset link to user's email
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function forgotPassword(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'email' => 'required|email'
-            ]);
+            $validated = $request->validate(['email' => 'required|email']);
+            $user = User::where('email', $validated['email'])->first();
 
-            $email = $validated['email'];
-            $user = null;
-            $userType = null;
-
-            // Find user in all three tables
-            $user = User::where('email', $email)->first();
-            if ($user) {
-                $userType = 'admin';
-            }
-
-            if (!$user) {
-                $user = LguUser::where('email', $email)->first();
-                if ($user) {
-                    $userType = 'lgu_user';
-                }
-            }
-
-            if (!$user) {
-                $user = KioskUser::where('email', $email)->first();
-                if ($user) {
-                    $userType = 'kiosk_user';
-                }
-            }
-
-            // For security, always return success even if email doesn't exist
             if (!$user) {
                 return response()->json([
                     'success' => true,
@@ -357,68 +156,35 @@ class AuthController extends Controller
                 ], 200);
             }
 
-            // Delete any existing reset tokens for this email
-            \App\Models\PasswordResetToken::where('email', $email)->delete();
-
-            // Generate unique token
+            \App\Models\PasswordResetToken::where('email', $user->email)->delete();
             $token = bin2hex(random_bytes(32));
 
-            // Create reset token record (expires in 1 hour)
             \App\Models\PasswordResetToken::create([
-                'email' => $email,
+                'email' => $user->email,
                 'token' => hash('sha256', $token),
-                'user_type' => $userType,
+                'user_type' => $user->role ? $user->role->slug : 'user',
                 'expires_at' => now()->addHour()
             ]);
 
-            // Generate reset link (frontend URL)
-            $resetLink = config('app.frontend_url', 'http://localhost:3000') . '/reset-password?token=' . $token . '&email=' . urlencode($email);
-
-            // Get user name
-            $userName = $user->name ?? $user->email;
-
-            // Send email
-            try {
-                $mail = new \App\Mail\PasswordResetMail($resetLink, $userName);
-                $htmlContent = $mail->render();
-                
-                $this->sendEmailViaBrevo(
-                    $email, 
-                    'Password Reset Request - JuanCharge', 
-                    $htmlContent
-                );
-                \Illuminate\Support\Facades\Log::info('Password reset email successfully sent via Brevo API for user: ' . $email);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to send password reset email via Brevo for user ' . $email . ': ' . $e->getMessage());
-                throw new \Exception('Failed to send password reset email. Check logs.');
-            }
+            $resetLink = config('app.frontend_url', 'http://localhost:3000') . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+            
+            $mail = new \App\Mail\PasswordResetMail($resetLink, $user->name);
+            $this->sendEmailViaBrevo($user->email, 'Password Reset Request - JuanCharge', $mail->render());
 
             return response()->json([
                 'success' => true,
                 'message' => 'Password reset link has been sent to your email.'
             ], 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to send reset email',
+                'message' => 'Failed to process request',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
-    /**
-     * Reset password using token and send new password via email
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function resetPassword(Request $request)
     {
         try {
@@ -427,131 +193,40 @@ class AuthController extends Controller
                 'token' => 'required|string'
             ]);
 
-            $email = $validated['email'];
-            $token = $validated['token'];
-
-            // Find reset token
-            $resetToken = \App\Models\PasswordResetToken::where('email', $email)
-                ->where('token', hash('sha256', $token))
+            $resetToken = \App\Models\PasswordResetToken::where('email', $validated['email'])
+                ->where('token', hash('sha256', $validated['token']))
                 ->first();
 
-            // Validate token exists
-            if (!$resetToken) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid or expired reset token'
-                ], 400);
+            if (!$resetToken || now()->gt($resetToken->expires_at)) {
+                return response()->json(['success' => false, 'message' => 'Invalid or expired token'], 400);
             }
 
-            // Check if token is expired
-            if (now()->gt($resetToken->expires_at)) {
-                $resetToken->delete();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Reset token has expired. Please request a new one.'
-                ], 400);
-            }
+            $user = User::where('email', $validated['email'])->first();
+            if (!$user) return response()->json(['success' => false, 'message' => 'User not found'], 404);
 
-            // Find user based on user_type
-            $user = null;
-            switch ($resetToken->user_type) {
-                case 'admin':
-                    $user = User::where('email', $email)->first();
-                    break;
-                case 'lgu_user':
-                    $user = LguUser::where('email', $email)->first();
-                    break;
-                case 'kiosk_user':
-                    $user = KioskUser::where('email', $email)->first();
-                    break;
-            }
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not found'
-                ], 404);
-            }
-
-            // Generate new random password (8-12 characters with mix of letters, numbers)
             $newPassword = $this->generateRandomPassword();
-
-            // Update user password
             $user->password = Hash::make($newPassword);
             $user->save();
 
-            // Revoke all existing tokens
             $user->tokens()->delete();
-
-            // Delete the reset token
             $resetToken->delete();
 
-            // Get user name
-            $userName = $user->name ?? null;
-
-            // Send new password via email
-            try {
-                $mail = new \App\Mail\NewPasswordMail($newPassword, $email, $userName);
-                $htmlContent = $mail->render();
-                
-                $this->sendEmailViaBrevo(
-                    $email, 
-                    'Your New Password - JuanCharge', 
-                    $htmlContent
-                );
-                \Illuminate\Support\Facades\Log::info('New password email successfully sent via Brevo API for user: ' . $email);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to send new password email via Brevo for user ' . $email . ': ' . $e->getMessage());
-                // We do not throw an exception here because the user's password HAS been successfully reset and saved
-            }
+            $mail = new \App\Mail\NewPasswordMail($newPassword, $user->email, $user->name);
+            $this->sendEmailViaBrevo($user->email, 'Your New Password - JuanCharge', $mail->render());
 
             return response()->json([
                 'success' => true,
                 'message' => 'Password has been reset successfully. Check your email for the new password.'
             ], 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reset password',
-                'error' => $e->getMessage()
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to reset password', 'error' => $e->getMessage()], 500);
         }
     }
 
-    /**
-     * Generate a random password
-     * 
-     * @return string
-     */
     private function generateRandomPassword()
     {
-        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
-        $numbers = '0123456789';
-        $special = '!@#$%';
-
-        $password = '';
-
-        // Ensure at least one of each type
-        $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
-        $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
-        $password .= $numbers[random_int(0, strlen($numbers) - 1)];
-        $password .= $special[random_int(0, strlen($special) - 1)];
-
-        // Fill the rest randomly (total length 10)
-        $allChars = $uppercase . $lowercase . $numbers . $special;
-        for ($i = 4; $i < 10; $i++) {
-            $password .= $allChars[random_int(0, strlen($allChars) - 1)];
-        }
-
-        // Shuffle the password
-        return str_shuffle($password);
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+        return substr(str_shuffle($chars), 0, 10);
     }
 }

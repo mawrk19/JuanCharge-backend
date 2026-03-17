@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\LguUser;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -14,11 +14,11 @@ class PasswordSetupController extends Controller
     {
         try {
             $validated = $request->validate([
-                'email' => 'required|email|exists:lgu_users,email',
+                'email' => 'required|email|exists:users,email',
                 'password' => 'required|string|min:8|confirmed',
             ]);
 
-            $user = LguUser::where('email', $validated['email'])->first();
+            $user = User::where('email', $validated['email'])->first();
 
             if (!$user || $user->status !== 'active') {
                 return response()->json(['message' => 'Invalid or unverified email.'], 400);
