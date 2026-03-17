@@ -10,7 +10,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
@@ -23,6 +23,7 @@ class User extends Authenticatable implements JWTSubject
         'role_id',
         'lgu_id',
         'name',
+        'email_verified_at',
         'first_name',
         'last_name',
         'email',

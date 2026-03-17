@@ -58,10 +58,11 @@ class LguUserController extends Controller
                 'last_name' => 'required|string|max:64',
                 'email' => 'required|email|max:128|unique:users,email',
                 'lgu_id' => 'nullable|exists:lgus,id',
-                'role_slug' => 'required|in:lgu_admin,lgu_staff'
+                'role_slug' => 'nullable|in:lgu_admin,lgu_staff' // Defaulting to staff if not provided by frontend yet
             ]);
 
-            $role = Role::where('slug', $validated['role_slug'])->first();
+            $roleSlug = $validated['role_slug'] ?? 'lgu_staff';
+            $role = Role::where('slug', $roleSlug)->first();
             
             // Authorization Check
             if ($request->user()->isLguAdmin()) {
@@ -149,5 +150,53 @@ class LguUserController extends Controller
 
         $user->delete();
         return response()->json(['success' => true, 'message' => 'User deleted']);
+    }
+
+    /**
+     * Verify email logic for LGU users.
+     */
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        if (! $request->hasValidSignature()) {
+            abort(403, 'Invalid or expired verification link.');
+        }
+
+        $user = User::findOrFail($id);
+
+        if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            abort(403, 'Invalid verification hash.');
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+            $user->status = 'active'; // Activate user upon verification
+            $user->save();
+        }
+
+        $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
+        // Redirect to setup password page with email filled
+        return redirect($frontendUrl . '/setup-password?email=' . urlencode($user->email));
+    }
+
+    /**
+     * Disable/Enable an LGU user.
+     */
+    public function disableUser(Request $request, $id)
+    {
+        $user = User::find($id);
+        if (!$user) return response()->json(['success' => false, 'message' => 'User not found'], 404);
+
+        if (auth()->user()->isLguAdmin() && $user->lgu_id !== auth()->user()->lgu_id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $user->status = $user->status === 'active' ? 'disabled' : 'active';
+        $user->save();
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'User status updated to ' . $user->status,
+            'data' => $user
+        ]);
     }
 }
