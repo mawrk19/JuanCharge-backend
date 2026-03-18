@@ -387,13 +387,24 @@ class ChargingController extends Controller
                 ], 401);
             }
 
+            if ($request->has('sessionId') && !$request->has('session_id')) {
+                $request->merge(['session_id' => $request->input('sessionId')]);
+            }
+
             $validated = $request->validate([
-                'session_id' => 'required|string',
+                'session_id' => 'nullable|string',
             ]);
 
-            $session = ChargingSession::where('session_id', $validated['session_id'])
-                ->where('user_id', $user->id)
-                ->first();
+            if (!empty($validated['session_id'])) {
+                $session = ChargingSession::where('session_id', $validated['session_id'])
+                    ->where('user_id', $user->id)
+                    ->first();
+            } else {
+                $session = ChargingSession::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->first();
+            }
 
             if (!$session) {
                 return response()->json([
