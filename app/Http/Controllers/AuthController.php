@@ -97,6 +97,57 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Validate the current bearer token.
+     */
+    public function validateToken(Request $request)
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'valid' => false,
+                'message' => 'Unauthenticated'
+            ], 401);
+        }
+
+        return response()->json([
+            'success' => true,
+            'valid' => true,
+            'user' => $user->load('role', 'lgu')
+        ]);
+    }
+
+    /**
+     * Rotate bearer token for authenticated user.
+     */
+    public function refresh(Request $request)
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated'
+            ], 401);
+        }
+
+        // Revoke existing tokens then issue a fresh one.
+        $user->tokens()->delete();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'token' => $token,
+            'user' => $user->fresh()->load('role', 'lgu'),
+            'user_type' => $user->role ? $user->role->slug : 'unknown',
+        ]);
+    }
+
     public function logout()
     {
         /** @var User|null $user */
