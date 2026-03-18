@@ -736,16 +736,16 @@ class ChargingController extends Controller
 
                 // Combine rankings
                 $rankingsRaw = User::where("role_id", \App\Models\Role::KIOSK_USER)->leftJoinSub($earnings, 'earnings', function ($join) {
-                    $join->on('kiosk_users.id', '=', 'earnings.user_id');
+                    $join->on('users.id', '=', 'earnings.user_id');
                 })
                     ->leftJoinSub($weights, 'weights', function ($join) {
-                        $join->on('kiosk_users.id', '=', 'weights.user_id');
+                        $join->on('users.id', '=', 'weights.user_id');
                     })
                     ->where(function ($q) {
                         $q->whereNotNull('earnings.period_points')
                             ->orWhereNotNull('weights.period_weight');
                     })
-                    ->select('kiosk_users.*', 'earnings.period_points', 'weights.period_weight')
+                    ->select('users.*', 'earnings.period_points', 'weights.period_weight')
                     ->orderBy('earnings.period_points', 'desc')
                     ->limit(10)
                     ->get();
