@@ -77,6 +77,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/phone/verification/send-otp', [AuthController::class, 'sendPhoneVerificationOtp'])->middleware('throttle:3,1');
     Route::post('/auth/phone/verification/verify-otp', [AuthController::class, 'verifyPhoneOtp'])->middleware('throttle:10,1');
 
+    // Activation routes are used by kiosk/mobile redemption flows and admin tools.
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff|kiosk_user')->group(function () {
+        Route::post('/charging/activate', [PortActivationController::class, 'activate']);
+        Route::post('/ports/activate', [PortActivationController::class, 'activate']); // alias
+    });
+
     Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
         // LGU Field Reports (staff submit + admin/super_admin review)
         Route::post('/lgu/field-reports', [FieldReportController::class, 'store']);
@@ -123,9 +129,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/kiosks-users/{id}', [KioskUserController::class, 'destroy']);
 
         // Admin Dashboard Routes
-        // Port activation (Seamless activation)
-        Route::post('/charging/activate', [PortActivationController::class, 'activate']);
-        Route::post('/ports/activate', [PortActivationController::class, 'activate']); // Keep as alias
 
         Route::prefix('points')->group(function () {
             Route::get('/overview', [DashboardController::class, 'getOverview']);

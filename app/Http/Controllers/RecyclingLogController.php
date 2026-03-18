@@ -22,9 +22,13 @@ class RecyclingLogController extends Controller
         // 1. Signature Validation Middleware Logic (HMAC SHA256)
         // Header: X-Kiosk-Signature (or similar)
         $signature = $request->header('X-Signature') ?? $request->header('X-Kiosk-Signature');
+        if (is_string($signature) && str_starts_with($signature, 'sha256=')) {
+            $signature = substr($signature, 7);
+        }
+
         $payload = $request->getContent();
-        // Use a shared secret from ENV. Default provided for development but should be set.
-        $secret = env('KIOSK_SHARED_SECRET'); 
+        // Resolve kiosk secret from config first, then legacy env key for backward compatibility.
+        $secret = config('app.kiosk_shared_secret') ?: env('KIOSK_SECRET_KEY') ?: env('KIOSK_SHARED_SECRET');
 
         // ALLOW LOCAL DEBUGGING: properties validation if simple test or missing config
         if (config('app.debug') && (!$signature || !$secret)) {
@@ -36,7 +40,7 @@ class RecyclingLogController extends Controller
             }
 
             if (!$secret) {
-                Log::error('KIOSK_SHARED_SECRET is not configured in .env');
+                Log::error('Kiosk sync secret is not configured (KIOSK_SHARED_SECRET/KIOSK_SECRET_KEY)');
                 return response()->json(['message' => 'Server Configuration Error'], 500);
             }
 
