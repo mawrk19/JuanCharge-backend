@@ -151,7 +151,7 @@ class MaintenanceTicketController extends Controller
     public function close(Request $request, int $id)
     {
         $user = $request->user();
-        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN])) {
+        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_TECHNICIAN])) {
             return response()->json(['message' => 'unauthorized', 'data' => null], 403);
         }
 
@@ -195,6 +195,15 @@ class MaintenanceTicketController extends Controller
             return true;
         }
 
-        return $user->isLguAdmin() && (int) $user->lgu_id === (int) $ticket->kiosk->lgu_id;
+        if ($user->isLguAdmin()) {
+            return (int) $user->lgu_id === (int) $ticket->kiosk->lgu_id;
+        }
+
+        if ($user->isLguTechnician()) {
+            return (int) $user->lgu_id === (int) $ticket->kiosk->lgu_id
+                && (int) $ticket->assigned_to_user_id === (int) $user->id;
+        }
+
+        return false;
     }
 }

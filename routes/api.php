@@ -209,9 +209,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/lgu/field-reports/{id}/force-maintenance', [FieldReportController::class, 'forceMaintenance']);
         Route::post('/lgu/field-reports/{id}/ticket', [FieldReportController::class, 'createTicket']);
 
-        // Maintenance tickets write actions
+        // Maintenance tickets admin write actions
         Route::patch('/lgu/tickets/{id}', [MaintenanceTicketController::class, 'update']);
-        Route::post('/lgu/tickets/{id}/close', [MaintenanceTicketController::class, 'close']);
 
         // Audit trail (state-changing API activity)
         Route::get('/lgu/audit-trails', [AuditTrailController::class, 'index']);
@@ -227,6 +226,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Manual leaderboard season refresh/rollover (idempotent with season_id targeting).
         Route::post('/admin/leaderboards/refresh', [LeaderboardAdminController::class, 'refresh']);
+    });
+
+    Route::middleware('role:super_admin|lgu_admin|lgu_technician')->group(function () {
+        // Technicians may close assigned tickets; admins may close any within scope.
+        Route::post('/lgu/tickets/{id}/close', [MaintenanceTicketController::class, 'close']);
     });
 });
 
