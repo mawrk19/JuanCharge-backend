@@ -2,9 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
 {
@@ -18,13 +18,34 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        if (!$request->user()) {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        if (!$user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $userRoleSlug = $request->user()->role ? $request->user()->role->slug : null;
+        $normalizedRoles = collect($roles)
+            ->flatMap(function ($role) {
+                return explode('|', (string) $role);
+            })
+            ->map(function ($role) {
+                $value = trim((string) $role);
+                if ($value === '') {
+                    return null;
+                }
 
-        if (!in_array($userRoleSlug, $roles)) {
+                if (is_numeric($value)) {
+                    return (int) $value;
+                }
+
+                return $value;
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if (empty($normalizedRoles) || !$user->hasAnyRole($normalizedRoles)) {
             return response()->json([
                 'message' => 'Your account does not have the required permissions for this action.'
             ], 403);

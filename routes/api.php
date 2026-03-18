@@ -12,6 +12,7 @@ use App\Http\Controllers\PointVoucherController;
 use App\Http\Controllers\PortActivationController;
 use App\Http\Controllers\RecyclingLogController;
 use App\Http\Controllers\Auth\PasswordSetupController;
+use Illuminate\Http\Request;
 
 // Public routes
 Route::get('/', function () {
@@ -51,6 +52,9 @@ Route::middleware(['mobile-api'])->group(function () {
 // Password reset routes (public)
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+Route::get('/auth/email/verify-change/{token}', [AuthController::class, 'verifyEmailChange'])
+    ->name('auth.email.change.verify')
+    ->middleware('signed');
 
 // Protected routes (require Sanctum authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -58,79 +62,89 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::get('/auth/validpate', [AuthController::class, 'validateToken']);
     Route::get('/auth/validate', [AuthController::class, 'validateToken']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/auth/email/change-request', [AuthController::class, 'requestEmailChangeVerification']);
+    Route::post('/auth/phone/verification/send-otp', [AuthController::class, 'sendPhoneVerificationOtp'])->middleware('throttle:3,1');
+    Route::post('/auth/phone/verification/verify-otp', [AuthController::class, 'verifyPhoneOtp'])->middleware('throttle:10,1');
 
-    // LGU Users CRUD
-    Route::get('/lgu-users', [LguUserController::class, 'index']);
-    Route::post('/lgu-users', [LguUserController::class, 'store']);
-    Route::get('/lgu-users/{id}', [LguUserController::class, 'show']);
-    Route::put('/lgu-users/{id}', [LguUserController::class, 'update']);
-    Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
-    Route::patch('/lgu-users/{id}/disable', [LguUserController::class, 'disableUser']);
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
+        // LGU Users CRUD
+        Route::get('/lgu-users', [LguUserController::class, 'index']);
+        Route::post('/lgu-users', [LguUserController::class, 'store']);
+        Route::get('/lgu-users/{id}', [LguUserController::class, 'show']);
+        Route::put('/lgu-users/{id}', [LguUserController::class, 'update']);
+        Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
+        Route::patch('/lgu-users/{id}/disable', [LguUserController::class, 'disableUser']);
 
-    // LGUs CRUD
-    Route::apiResource('lgus', \App\Http\Controllers\LguController::class);
+        // Kiosks CRUD
+        Route::apiResource('kiosks', KioskController::class);
+        Route::get('/kiosks/id/{id}', [KioskController::class, 'show']);
 
-    // Kiosks CRUD
-    Route::apiResource('kiosks', KioskController::class);
-    Route::get('/kiosks/id/{id}', [KioskController::class, 'show']);
+        // Kiosk Users CRUD
+        Route::get('/kiosk-users', [KioskUserController::class, 'index']);
+        Route::post('/kiosk-users', [KioskUserController::class, 'store']);
+        Route::get('/kiosk-users/{id}', [KioskUserController::class, 'show']);
+        Route::put('/kiosk-users/{id}', [KioskUserController::class, 'update']);
+        Route::delete('/kiosk-users/{id}', [KioskUserController::class, 'destroy']);
 
-    // Kiosk Users CRUD
-    Route::get('/kiosk-users', [KioskUserController::class, 'index']);
-    Route::post('/kiosk-users', [KioskUserController::class, 'store']);
-    Route::get('/kiosk-users/{id}', [KioskUserController::class, 'show']);
-    Route::put('/kiosk-users/{id}', [KioskUserController::class, 'update']);
-    Route::delete('/kiosk-users/{id}', [KioskUserController::class, 'destroy']);
+        // Alias routes for backward compatibility (plural form)
+        Route::get('/kiosks-users', [KioskUserController::class, 'index']);
+        Route::post('/kiosks-users', [KioskUserController::class, 'store']);
+        Route::get('/kiosks-users/{id}', [KioskUserController::class, 'show']);
+        Route::put('/kiosks-users/{id}', [KioskUserController::class, 'update']);
+        Route::delete('/kiosks-users/{id}', [KioskUserController::class, 'destroy']);
 
-    // Alias routes for backward compatibility (plural form)
-    Route::get('/kiosks-users', [KioskUserController::class, 'index']);
-    Route::post('/kiosks-users', [KioskUserController::class, 'store']);
-    Route::get('/kiosks-users/{id}', [KioskUserController::class, 'show']);
-    Route::put('/kiosks-users/{id}', [KioskUserController::class, 'update']);
-    Route::delete('/kiosks-users/{id}', [KioskUserController::class, 'destroy']);
+        // Admin Dashboard Routes
+        // Port activation (Seamless activation)
+        Route::post('/charging/activate', [PortActivationController::class, 'activate']);
+        Route::post('/ports/activate', [PortActivationController::class, 'activate']); // Keep as alias
 
-    // Charging Session Routes
-    Route::post('/charging/redeem', [ChargingController::class, 'redeem']);
-    Route::get('/charging/active', [ChargingController::class, 'getActive']);
-    Route::post('/charging/cancel', [ChargingController::class, 'cancel']);
-    Route::get('/charging/history', [ChargingController::class, 'history']);
+        Route::prefix('points')->group(function () {
+            Route::get('/overview', [DashboardController::class, 'getOverview']);
+            Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
+            Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
+            Route::get('/chart', [DashboardController::class, 'getChartData']);
+        });
+        Route::prefix('dashboard')->group(function () {
+            Route::get('/overview', [DashboardController::class, 'getOverview']);
+            Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
+            Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
+        });
 
-    // Points Routes
-    Route::get('/patron/points/balance', [ChargingController::class, 'getBalance']);
-    Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
-    Route::post('/mobile/vouchers/claim', [PointVoucherController::class, 'claim']);
-    Route::post('/mobile/vouchers/claim-signed', [PointVoucherController::class, 'claimSigned']); // Offline Code Claim
-    Route::post('/patron/points/claim-signed', [PointVoucherController::class, 'claimSigned']); // Alias for Mobile App compatibility
-
-    // Recycling Routes
-    Route::post('/patron/recycling/deposit', [ChargingController::class, 'depositRecyclables']);
-
-    // Dashboard Stats & Social
-    Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
-    Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
-    Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
-
-    // Admin Dashboard Routes
-    // Port activation (Seamless activation)
-    Route::post('/charging/activate', [PortActivationController::class, 'activate']);
-    Route::post('/ports/activate', [PortActivationController::class, 'activate']); // Keep as alias
-
-    Route::prefix('points')->group(function () {
-        Route::get('/overview', [DashboardController::class, 'getOverview']);
-        Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
-        Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
-        Route::get('/chart', [DashboardController::class, 'getChartData']);
-    });
-    Route::prefix('dashboard')->group(function () {
-        Route::get('/overview', [DashboardController::class, 'getOverview']);
-        Route::get('/sessions', [DashboardController::class, 'getRecentSessions']);
-        Route::get('/recycling', [DashboardController::class, 'getRecentRecycling']);
+        // New Recycling Analytics for Hardware Stats
+        Route::get('/admin/analytics/recycling', [\App\Http\Controllers\Admin\RecyclingAnalyticsController::class, 'index']);
     });
 
-    // New Recycling Analytics for Hardware Stats
-    Route::get('/admin/analytics/recycling', [\App\Http\Controllers\Admin\RecyclingAnalyticsController::class, 'index']);
+    Route::middleware('role:kiosk_user')->group(function () {
+        // Charging Session Routes
+        Route::post('/charging/redeem', [ChargingController::class, 'redeem']);
+        Route::get('/charging/active', [ChargingController::class, 'getActive']);
+        Route::post('/charging/cancel', [ChargingController::class, 'cancel']);
+        Route::get('/charging/history', [ChargingController::class, 'history']);
+
+        // Points Routes
+        Route::get('/patron/points/balance', [ChargingController::class, 'getBalance']);
+        Route::get('/patron/points/transactions', [ChargingController::class, 'transactions']);
+        Route::post('/mobile/vouchers/claim', [PointVoucherController::class, 'claim']);
+        Route::post('/mobile/vouchers/claim-signed', [PointVoucherController::class, 'claimSigned']); // Offline Code Claim
+        Route::post('/patron/points/claim-signed', [PointVoucherController::class, 'claimSigned']); // Alias for Mobile App compatibility
+
+        // Recycling Routes
+        Route::post('/patron/recycling/deposit', [ChargingController::class, 'depositRecyclables']);
+
+        // Dashboard Stats & Social
+        Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
+        Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
+        Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
+    });
+
+    Route::middleware('role:super_admin')->group(function () {
+        // LGUs CRUD
+        Route::apiResource('lgus', \App\Http\Controllers\LguController::class);
+    });
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

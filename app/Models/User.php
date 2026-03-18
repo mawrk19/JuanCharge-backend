@@ -87,24 +87,58 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
     /**
      * Helpers for roles
      */
+    public function roleSlug(): ?string
+    {
+        if ($this->relationLoaded('role') && $this->role) {
+            return $this->role->slug;
+        }
+
+        return Role::slugForId((int) $this->role_id);
+    }
+
+    public function hasRole(int|string $role): bool
+    {
+        if (is_int($role)) {
+            return (int) $this->role_id === $role;
+        }
+
+        return $this->roleSlug() === $role;
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        foreach ($roles as $role) {
+            if ($this->hasRole($role)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function isSuperAdmin()
     {
-        return $this->role_id === Role::SUPER_ADMIN;
+        return $this->hasRole(Role::SUPER_ADMIN);
     }
 
     public function isLguAdmin()
     {
-        return $this->role_id === Role::LGU_ADMIN;
+        return $this->hasRole(Role::LGU_ADMIN);
     }
 
     public function isLguStaff()
     {
-        return $this->role_id === Role::LGU_STAFF;
+        return $this->hasRole(Role::LGU_STAFF);
     }
 
     public function isKioskUser()
     {
-        return $this->role_id === Role::KIOSK_USER;
+        return $this->hasRole(Role::KIOSK_USER);
+    }
+
+    public function isLguRole()
+    {
+        return $this->hasAnyRole([Role::LGU_ADMIN, Role::LGU_STAFF]);
     }
 
     /**

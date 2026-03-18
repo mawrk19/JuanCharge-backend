@@ -9,7 +9,6 @@ use App\Models\Role;
 use App\Models\RecyclingLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -19,7 +18,7 @@ class DashboardController extends Controller
     public function getOverview()
     {
         try {
-            $user = auth()->user();
+            $user = $this->authenticatedUser();
 
             // Base Queries
             $userQuery = User::where('role_id', Role::KIOSK_USER);
@@ -78,7 +77,7 @@ class DashboardController extends Controller
     public function getRecentSessions(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = $this->authenticatedUser();
             $limit = min($request->get('limit', 10), 30);
 
             $query = ChargingSession::with(['user:id,name', 'kiosk:id,kiosk_code,location'])
@@ -102,7 +101,7 @@ class DashboardController extends Controller
     public function getRecentRecycling(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = $this->authenticatedUser();
             $limit = min($request->get('limit', 10), 30);
 
             $query = RecyclingLog::with(['user:id,name', 'kiosk:id,kiosk_code'])
@@ -126,7 +125,7 @@ class DashboardController extends Controller
     public function getChartData()
     {
         try {
-            $user = auth()->user();
+            $user = $this->authenticatedUser();
             $days = collect(range(6, 0))->map(function ($daysAgo) use ($user) {
                 $date = now()->subDays($daysAgo);
                 $sq = ChargingSession::whereDate('created_at', $date);
@@ -152,5 +151,15 @@ class DashboardController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error'], 500);
         }
+    }
+
+    private function authenticatedUser(): User
+    {
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        abort_if(!$user, 401, 'Unauthenticated.');
+
+        return $user;
     }
 }

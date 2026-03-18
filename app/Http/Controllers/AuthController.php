@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use App\Traits\SendsBrevoEmails;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -78,6 +81,7 @@ class AuthController extends Controller
      */
     public function me()
     {
+        /** @var User|null $user */
         $user = auth()->user();
 
         if (!$user) {
@@ -95,8 +99,11 @@ class AuthController extends Controller
 
     public function logout()
     {
-        if (auth()->user()) {
-            auth()->user()->tokens()->delete();
+        /** @var User|null $user */
+        $user = auth()->user();
+
+        if ($user) {
+            $user->tokens()->delete();
         }
 
         return response()->json([
@@ -108,14 +115,17 @@ class AuthController extends Controller
     public function updateProfile(Request $request)
     {
         try {
+            /** @var User|null $user */
             $user = auth()->user();
+
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
 
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
-                'email' => 'nullable|email|max:255|unique:users,email,' . $user->id,
-                'phone_number' => 'nullable|string|max:15',
             ]);
 
             if (isset($validated['first_name']) && isset($validated['last_name'])) {
@@ -228,5 +238,240 @@ class AuthController extends Controller
     {
         $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
         return substr(str_shuffle($chars), 0, 10);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => [
+                'required',
+                'string',
+                'min:8',
+                'max:64',
+                'confirmed',
+                'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/',
+            ],
+        ]);
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Current password is incorrect.'
+            ], 422);
+        }
+
+        if (Hash::check($validated['new_password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'New password must be different from current password.'
+            ], 422);
+        }
+
+        $user->password = Hash::make($validated['new_password']);
+        $user->is_first_login = false;
+        $user->save();
+
+        // Revoke old tokens for security after password change.
+        $user->tokens()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password changed successfully. Please login again.'
+        ]);
+    }
+
+    public function requestEmailChangeVerification(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'new_email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'current_password' => 'required|string',
+        ]);
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Current password is incorrect.'
+            ], 422);
+        }
+
+        if (strcasecmp($validated['new_email'], $user->email) === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'New email must be different from current email.'
+            ], 422);
+        }
+
+        $token = Str::random(64);
+        $cacheKey = 'email_change:' . $token;
+
+        Cache::put($cacheKey, [
+            'user_id' => $user->id,
+            'new_email' => strtolower($validated['new_email']),
+        ], now()->addMinutes(60));
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'auth.email.change.verify',
+            now()->addMinutes(60),
+            ['token' => $token]
+        );
+
+        $html = "
+            <div style='font-family: Arial, sans-serif; color: #333;'>
+                <h2>Confirm Your New Email</h2>
+                <p>Hello {$user->name},</p>
+                <p>You requested to change your JuanCharge email to <strong>{$validated['new_email']}</strong>.</p>
+                <p>Click the button below to confirm this change:</p>
+                <p>
+                    <a href='{$verificationUrl}' style='display:inline-block;padding:10px 16px;background:#0f766e;color:#fff;text-decoration:none;border-radius:6px;'>
+                        Confirm Email Change
+                    </a>
+                </p>
+                <p>This link will expire in 60 minutes.</p>
+            </div>
+        ";
+
+        $sent = $this->sendEmailViaBrevo($validated['new_email'], 'Confirm your new email - JuanCharge', $html);
+
+        if (!$sent) {
+            Cache::forget($cacheKey);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send verification email. Please try again.'
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification link sent to your new email address.'
+        ]);
+    }
+
+    public function verifyEmailChange(Request $request, string $token)
+    {
+        if (!$request->hasValidSignature()) {
+            return response()->json(['success' => false, 'message' => 'Invalid or expired verification link.'], 403);
+        }
+
+        $cacheKey = 'email_change:' . $token;
+        $payload = Cache::get($cacheKey);
+
+        if (!$payload || empty($payload['user_id']) || empty($payload['new_email'])) {
+            return response()->json(['success' => false, 'message' => 'Verification request not found or expired.'], 410);
+        }
+
+        $user = User::find($payload['user_id']);
+        if (!$user) {
+            Cache::forget($cacheKey);
+            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+        }
+
+        if (User::where('email', $payload['new_email'])->where('id', '!=', $user->id)->exists()) {
+            Cache::forget($cacheKey);
+            return response()->json(['success' => false, 'message' => 'Email is already in use.'], 422);
+        }
+
+        $user->email = $payload['new_email'];
+        $user->email_verified_at = now();
+        $user->save();
+
+        Cache::forget($cacheKey);
+
+        $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
+        return redirect($frontendUrl . '/profile?email_change=verified');
+    }
+
+    public function sendPhoneVerificationOtp(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'phone_number' => 'required|string|max:20|unique:users,phone_number,' . $user->id,
+        ]);
+
+        $otp = (string) random_int(100000, 999999);
+        $phoneNumber = $validated['phone_number'];
+        $cacheKey = 'phone_verify:' . $user->id . ':' . $phoneNumber;
+
+        Cache::put($cacheKey, [
+            'otp' => $otp,
+            'phone_number' => $phoneNumber,
+        ], now()->addMinutes(10));
+
+        $smsText = 'Your JuanCharge verification code is ' . $otp . '. Expires in 10 minutes.';
+        $smsSent = $this->sendBrevoSms($phoneNumber, $smsText);
+
+        if (!$smsSent) {
+            Log::warning('Phone OTP SMS failed to send', ['user_id' => $user->id, 'phone_number' => $phoneNumber]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send OTP to this phone number.'
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP sent to your phone number.'
+        ]);
+    }
+
+    public function verifyPhoneOtp(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'phone_number' => 'required|string|max:20',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        $cacheKey = 'phone_verify:' . $user->id . ':' . $validated['phone_number'];
+        $payload = Cache::get($cacheKey);
+
+        if (!$payload || !isset($payload['otp']) || $payload['otp'] !== $validated['otp']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired OTP.'
+            ], 422);
+        }
+
+        if (User::where('phone_number', $validated['phone_number'])->where('id', '!=', $user->id)->exists()) {
+            Cache::forget($cacheKey);
+            return response()->json([
+                'success' => false,
+                'message' => 'Phone number is already in use.'
+            ], 422);
+        }
+
+        $user->phone_number = $validated['phone_number'];
+        $user->contact_number_verified_at = now();
+        $user->save();
+
+        Cache::forget($cacheKey);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Phone number verified successfully.',
+            'user' => $user->fresh()
+        ]);
     }
 }
