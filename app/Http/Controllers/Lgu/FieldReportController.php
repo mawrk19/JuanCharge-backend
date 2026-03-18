@@ -99,7 +99,7 @@ class FieldReportController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN])) {
+        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_TECHNICIAN])) {
             return response()->json(['message' => 'unauthorized', 'data' => null], 403);
         }
 
@@ -121,6 +121,13 @@ class FieldReportController extends Controller
             $query->whereHas('kiosk', function ($q) use ($user) {
                 $q->where('lgu_id', (int) $user->lgu_id);
             });
+
+            // Technicians should only see reports tied to their assigned tickets.
+            if ($user->isLguTechnician()) {
+                $query->whereHas('ticket', function ($q) use ($user) {
+                    $q->where('assigned_to_user_id', (int) $user->id);
+                });
+            }
         }
 
         if ($request->filled('kiosk_id')) {

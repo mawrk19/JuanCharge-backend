@@ -188,16 +188,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/lgus/{id}', [\App\Http\Controllers\LguController::class, 'destroy']);
     });
 
-    Route::middleware('role:super_admin|lgu_admin')->group(function () {
-        // LGU Field Reports review/admin actions
+    Route::middleware('role:super_admin|lgu_admin|lgu_technician')->group(function () {
+        // LGU Field Reports read actions
         Route::get('/lgu/field-reports', [FieldReportController::class, 'index']);
         Route::get('/kiosk-field-reports', [FieldReportController::class, 'index']); // temporary alias
+
+        // Maintenance tickets read actions
+        Route::get('/lgu/tickets', [MaintenanceTicketController::class, 'index']);
+    });
+
+    Route::middleware('role:super_admin|lgu_admin')->group(function () {
+        // LGU Field Reports review/admin actions
         Route::post('/lgu/field-reports/{id}/verify', [FieldReportController::class, 'verify']);
         Route::post('/lgu/field-reports/{id}/force-maintenance', [FieldReportController::class, 'forceMaintenance']);
         Route::post('/lgu/field-reports/{id}/ticket', [FieldReportController::class, 'createTicket']);
 
-        // Maintenance tickets
-        Route::get('/lgu/tickets', [MaintenanceTicketController::class, 'index']);
+        // Maintenance tickets write actions
         Route::patch('/lgu/tickets/{id}', [MaintenanceTicketController::class, 'update']);
         Route::post('/lgu/tickets/{id}/close', [MaintenanceTicketController::class, 'close']);
 

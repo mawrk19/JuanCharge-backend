@@ -14,7 +14,7 @@ class MaintenanceTicketController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN])) {
+        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_TECHNICIAN])) {
             return response()->json(['message' => 'unauthorized', 'data' => null], 403);
         }
 
@@ -37,6 +37,11 @@ class MaintenanceTicketController extends Controller
             $query->whereHas('kiosk', function ($q) use ($user) {
                 $q->where('lgu_id', (int) $user->lgu_id);
             });
+
+            // Technicians should only see tickets assigned to themselves.
+            if ($user->isLguTechnician()) {
+                $query->where('assigned_to_user_id', (int) $user->id);
+            }
         }
 
         if ($request->filled('status')) {
