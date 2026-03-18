@@ -25,8 +25,8 @@ class LguUserController extends Controller
             $query = User::with('lgu', 'role')
                 ->whereIn('role_id', [Role::LGU_ADMIN, Role::LGU_STAFF]);
 
-            // If requester is LGU Admin, filter by their LGU
-            if ($request->user()->isLguAdmin()) {
+            // If requester is LGU Admin or LGU Staff, filter by their LGU
+            if ($request->user()->isLguAdmin() || $request->user()->isLguStaff()) {
                 $query->where('lgu_id', $request->user()->lgu_id);
             }
 
@@ -122,8 +122,8 @@ class LguUserController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
         
-        // Scope check
-        if ($currentUser->isLguAdmin() && $user->lgu_id !== $currentUser->lgu_id) {
+        // Scope check: LGU admin or staff can only view users in their own LGU
+        if (($currentUser->isLguAdmin() || $currentUser->isLguStaff()) && $user->lgu_id !== $currentUser->lgu_id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -190,6 +190,11 @@ class LguUserController extends Controller
         $currentUser = auth()->user();
         if (!$currentUser) {
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        // Only LGU admin can delete (not staff)
+        if (!$currentUser->isSuperAdmin() && !$currentUser->isLguAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
         if ($currentUser->isLguAdmin() && $user->lgu_id !== $currentUser->lgu_id) {
