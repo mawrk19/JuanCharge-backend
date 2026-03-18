@@ -96,8 +96,29 @@ class RecyclingAnalyticsController extends Controller
             return 'plastic';
         }
 
-        if (in_array($normalized, ['metal', 'can', 'tin/cans'], true)) {
-            return 'metal';
+        if (in_array($normalized, [
+            'aluminum/cans',
+            'aluminium/cans',
+            'aluminum cans',
+            'aluminium cans',
+            'aluminum_can',
+            'aluminum_cans',
+            'aluminium_can',
+            'aluminium_cans',
+        ], true)) {
+            return 'aluminum/cans';
+        }
+
+        if (in_array($normalized, [
+            'metal',
+            'can',
+            'cans',
+            'tin/cans',
+            'tin cans',
+            'tin_can',
+            'tin_cans',
+        ], true)) {
+            return 'tin/cans';
         }
 
         if (in_array($normalized, ['glass', 'glass_bottle'], true)) {
