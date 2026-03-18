@@ -176,6 +176,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Manual trigger for collection reminders.
         Route::post('/collection-schedules/{id}/notify', [CollectionScheduleController::class, 'notify']);
+
+        // Admin reset password for a target user by ID.
+        Route::post('/users/{id}/reset-password', [AuthController::class, 'adminResetPassword']);
     });
 });
 

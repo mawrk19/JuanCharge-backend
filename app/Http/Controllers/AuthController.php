@@ -287,6 +287,65 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Reset another user's password by ID (admin use).
+     */
+    public function adminResetPassword(Request $request, $id)
+    {
+        /** @var User|null $currentUser */
+        $currentUser = $request->user();
+
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        if (!$currentUser->isSuperAdmin() && !$currentUser->isLguAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'new_password' => [
+                'required',
+                'string',
+                'min:8',
+                'max:64',
+            ],
+        ]);
+
+        $targetUser = User::with('role')->find($id);
+        if (!$targetUser) {
+            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+        }
+
+        // LGU admins are limited to users in their own LGU and cannot reset super admins.
+        if ($currentUser->isLguAdmin()) {
+            if ((int) $targetUser->lgu_id !== (int) $currentUser->lgu_id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            if ((int) $targetUser->role_id === Role::SUPER_ADMIN) {
+                return response()->json(['success' => false, 'message' => 'Cannot reset super admin password'], 403);
+            }
+        }
+
+        $targetUser->password = Hash::make($validated['new_password']);
+        $targetUser->is_first_login = false;
+        $targetUser->save();
+
+        // Revoke active tokens so new password takes effect immediately.
+        $targetUser->tokens()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password reset successfully.',
+            'data' => [
+                'id' => $targetUser->id,
+                'email' => $targetUser->email,
+                'role_id' => $targetUser->role_id,
+            ],
+        ]);
+    }
+
     public function requestEmailChangeVerification(Request $request)
     {
         $user = $request->user();
