@@ -13,6 +13,7 @@ class Kiosk extends Model
 
     protected $fillable = [
         'lgu_id',
+        'collection_schedule_id',
         'kiosk_code',
         'location',
         'status',
@@ -49,6 +50,11 @@ class Kiosk extends Model
     public function sessions()
     {
         return $this->hasMany(ChargingSession::class, 'kiosk_id');
+    }
+
+    public function collectionSchedule()
+    {
+        return $this->belongsTo(CollectionSchedule::class, 'collection_schedule_id');
     }
 
     protected $appends = ['assigned_user_name'];

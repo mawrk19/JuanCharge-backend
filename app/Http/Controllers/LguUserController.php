@@ -53,21 +53,31 @@ class LguUserController extends Controller
     public function store(Request $request)
     {
         try {
+            if (!$request->user()->isSuperAdmin() && !$request->user()->isLguAdmin()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
             $validated = $request->validate([
                 'first_name' => 'required|string|max:64',
                 'last_name' => 'required|string|max:64',
                 'email' => 'required|email|max:128|unique:users,email',
                 'lgu_id' => 'nullable|exists:lgus,id',
-                'role_slug' => 'nullable|in:lgu_admin,lgu_staff' // Defaulting to staff if not provided by frontend yet
+                'role_slug' => 'nullable|in:lgu_admin,lgu_staff'
             ]);
 
             $roleSlug = $validated['role_slug'] ?? 'lgu_staff';
             $role = Role::where('slug', $roleSlug)->first();
+            if (!$role) {
+                return response()->json(['success' => false, 'message' => 'Invalid role.'], 422);
+            }
             
             // Authorization Check
             if ($request->user()->isLguAdmin()) {
                 $validated['lgu_id'] = $request->user()->lgu_id;
-                // LGU Admin can only create LGU Staff (or another Admin in their LGU if permitted)
+            }
+
+            if ($request->user()->isSuperAdmin() && empty($validated['lgu_id'])) {
+                return response()->json(['success' => false, 'message' => 'LGU is required for this user type.'], 422);
             }
 
             $user = User::create([
@@ -105,9 +115,15 @@ class LguUserController extends Controller
     {
         $user = User::with('lgu', 'role')->find($id);
         if (!$user) return response()->json(['success' => false, 'message' => 'User not found'], 404);
+
+        /** @var User|null $currentUser */
+        $currentUser = auth()->user();
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
         
         // Scope check
-        if (auth()->user()->isLguAdmin() && $user->lgu_id !== auth()->user()->lgu_id) {
+        if ($currentUser->isLguAdmin() && $user->lgu_id !== $currentUser->lgu_id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -119,7 +135,17 @@ class LguUserController extends Controller
         $user = User::find($id);
         if (!$user) return response()->json(['success' => false, 'message' => 'User not found'], 404);
 
-        if (auth()->user()->isLguAdmin() && $user->lgu_id !== auth()->user()->lgu_id) {
+        /** @var User|null $currentUser */
+        $currentUser = auth()->user();
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        if (!$currentUser->isSuperAdmin() && !$currentUser->isLguAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if ($currentUser->isLguAdmin() && $user->lgu_id !== $currentUser->lgu_id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -144,7 +170,13 @@ class LguUserController extends Controller
         $user = User::find($id);
         if (!$user) return response()->json(['success' => false, 'message' => 'User not found'], 404);
 
-        if (auth()->user()->isLguAdmin() && $user->lgu_id !== auth()->user()->lgu_id) {
+        /** @var User|null $currentUser */
+        $currentUser = auth()->user();
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        if ($currentUser->isLguAdmin() && $user->lgu_id !== $currentUser->lgu_id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -186,7 +218,13 @@ class LguUserController extends Controller
         $user = User::find($id);
         if (!$user) return response()->json(['success' => false, 'message' => 'User not found'], 404);
 
-        if (auth()->user()->isLguAdmin() && $user->lgu_id !== auth()->user()->lgu_id) {
+        /** @var User|null $currentUser */
+        $currentUser = auth()->user();
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        if ($currentUser->isLguAdmin() && $user->lgu_id !== $currentUser->lgu_id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

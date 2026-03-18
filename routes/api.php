@@ -12,6 +12,9 @@ use App\Http\Controllers\PointVoucherController;
 use App\Http\Controllers\PortActivationController;
 use App\Http\Controllers\RecyclingLogController;
 use App\Http\Controllers\Auth\PasswordSetupController;
+use App\Http\Controllers\LguSystemSettingController;
+use App\Http\Controllers\CollectionScheduleController;
+use App\Http\Controllers\CollectionNotificationController;
 use Illuminate\Http\Request;
 
 // Public routes
@@ -71,6 +74,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/phone/verification/verify-otp', [AuthController::class, 'verifyPhoneOtp'])->middleware('throttle:10,1');
 
     Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
+        // LGU Collection Notifications
+        Route::get('/collection-notifications', [CollectionNotificationController::class, 'index']);
+        Route::patch('/collection-notifications/{id}/read', [CollectionNotificationController::class, 'markAsRead']);
+
+        // LGU System Configuration (exchange rates)
+        Route::get('/system-config', [LguSystemSettingController::class, 'show']);
+
         // LGU Users CRUD
         Route::get('/lgu-users', [LguUserController::class, 'index']);
         Route::post('/lgu-users', [LguUserController::class, 'store']);
@@ -82,6 +92,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Kiosks CRUD
         Route::apiResource('kiosks', KioskController::class);
         Route::get('/kiosks/id/{id}', [KioskController::class, 'show']);
+
+        // Collection schedules per LGU
+        Route::get('/collection-schedules', [CollectionScheduleController::class, 'index']);
+        Route::post('/collection-schedules', [CollectionScheduleController::class, 'store']);
+        Route::get('/collection-schedules/{id}', [CollectionScheduleController::class, 'show']);
+        Route::put('/collection-schedules/{id}', [CollectionScheduleController::class, 'update']);
+        Route::delete('/collection-schedules/{id}', [CollectionScheduleController::class, 'destroy']);
 
         // Kiosk Users CRUD
         Route::get('/kiosk-users', [KioskUserController::class, 'index']);
@@ -144,6 +161,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:super_admin')->group(function () {
         // LGUs CRUD
         Route::apiResource('lgus', \App\Http\Controllers\LguController::class);
+    });
+
+    Route::middleware('role:super_admin|lgu_admin')->group(function () {
+        // Super admin may update any LGU settings; LGU admin may update own LGU.
+        Route::put('/system-config', [LguSystemSettingController::class, 'upsert']);
+
+        // Manual trigger for collection reminders.
+        Route::post('/collection-schedules/{id}/notify', [CollectionScheduleController::class, 'notify']);
     });
 });
 

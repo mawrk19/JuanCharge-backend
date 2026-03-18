@@ -84,6 +84,11 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         return $this->hasMany(RecyclingLog::class);
     }
 
+    public function collectionNotifications()
+    {
+        return $this->hasMany(CollectionNotification::class);
+    }
+
     /**
      * Helpers for roles
      */

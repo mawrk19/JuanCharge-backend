@@ -37,4 +37,14 @@ class Lgu extends Model
     {
         return $this->hasMany(Kiosk::class, 'lgu_id');
     }
+
+    public function systemSetting()
+    {
+        return $this->hasOne(LguSystemSetting::class, 'lgu_id');
+    }
+
+    public function collectionSchedules()
+    {
+        return $this->hasMany(CollectionSchedule::class, 'lgu_id');
+    }
 }

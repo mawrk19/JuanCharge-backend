@@ -15,7 +15,15 @@ class KioskController extends Controller
     public function index()
     {
         try {
-            $kiosks = Kiosk::with(['assignedTo', 'lgu'])->get();
+            /** @var \App\Models\User|null $user */
+            $user = auth()->user();
+            $query = Kiosk::with(['assignedTo', 'lgu', 'collectionSchedule']);
+
+            if ($user && $user->isLguRole()) {
+                $query->where('lgu_id', $user->lgu_id);
+            }
+
+            $kiosks = $query->get();
 
             $transformedKiosks = $kiosks->map(function ($kiosk) {
                 $data = $kiosk->toArray();
@@ -27,6 +35,7 @@ class KioskController extends Controller
                 }
 
                 $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
+                $data['collection_schedule_name'] = $kiosk->collectionSchedule ? $kiosk->collectionSchedule->name : null;
 
                 return $data;
             });
@@ -50,13 +59,31 @@ class KioskController extends Controller
     public function store(Request $request)
     {
         try {
+            if (!$request->user()->isSuperAdmin() && !$request->user()->isLguAdmin()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
             $validated = $request->validate([
                 'kiosk_code' => 'required|string|max:50|unique:kiosks',
                 'location' => 'required|string|max:255',
                 'status' => 'nullable|string|in:active,inactive,maintenance',
-                'assigned_to' => 'nullable|exists:lgu_users,id',
+                'assigned_to' => 'nullable|exists:users,id',
                 'lgu_id' => 'nullable|exists:lgus,id',
+                'collection_schedule_id' => 'nullable|exists:collection_schedules,id',
             ]);
+
+            if ($request->user()->isLguAdmin()) {
+                $validated['lgu_id'] = $request->user()->lgu_id;
+            } elseif (empty($validated['lgu_id'])) {
+                return response()->json(['success' => false, 'message' => 'LGU is required.'], 422);
+            }
+
+            if (!empty($validated['collection_schedule_id'])) {
+                $schedule = \App\Models\CollectionSchedule::find($validated['collection_schedule_id']);
+                if (!$schedule || (int) $schedule->lgu_id !== (int) $validated['lgu_id']) {
+                    return response()->json(['success' => false, 'message' => 'Selected schedule does not belong to this LGU.'], 422);
+                }
+            }
 
             // Set default status if not provided
             if (!isset($validated['status'])) {
@@ -64,11 +91,12 @@ class KioskController extends Controller
             }
 
             $kiosk = Kiosk::create($validated);
-            $kiosk->load(['assignedTo', 'lgu']);
+            $kiosk->load(['assignedTo', 'lgu', 'collectionSchedule']);
 
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
             $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
+            $data['collection_schedule_name'] = $kiosk->collectionSchedule ? $kiosk->collectionSchedule->name : null;
 
             return response()->json([
                 'success' => true,
@@ -97,14 +125,21 @@ class KioskController extends Controller
     {
         try {
             // Try matching by primary ID or kiosk_code
-            $kiosk = Kiosk::with(['assignedTo', 'lgu'])
+            $kiosk = Kiosk::with(['assignedTo', 'lgu', 'collectionSchedule'])
                 ->where('id', $id)
                 ->orWhere('kiosk_code', $id)
                 ->firstOrFail();
 
+            /** @var \App\Models\User|null $user */
+            $user = auth()->user();
+            if ($user && $user->isLguRole() && (int) $kiosk->lgu_id !== (int) $user->lgu_id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
             $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
+            $data['collection_schedule_name'] = $kiosk->collectionSchedule ? $kiosk->collectionSchedule->name : null;
 
             return response()->json([
                 'success' => true,
@@ -127,20 +162,46 @@ class KioskController extends Controller
         try {
             $kiosk = Kiosk::findOrFail($id);
 
+            if (!$request->user()->isSuperAdmin() && !$request->user()->isLguAdmin()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            if ($request->user()->isLguAdmin() && (int) $kiosk->lgu_id !== (int) $request->user()->lgu_id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
             $validated = $request->validate([
                 'kiosk_code' => 'sometimes|string|max:50|unique:kiosks,kiosk_code,' . $id,
                 'location' => 'sometimes|string|max:255',
                 'status' => 'sometimes|string|in:active,inactive,maintenance',
-                'assigned_to' => 'nullable|exists:lgu_users,id',
+                'assigned_to' => 'nullable|exists:users,id',
                 'lgu_id' => 'nullable|exists:lgus,id',
+                'collection_schedule_id' => 'nullable|exists:collection_schedules,id',
             ]);
 
+            if ($request->user()->isLguAdmin()) {
+                // LGU admin cannot rebind kiosk to another LGU.
+                unset($validated['lgu_id']);
+            }
+
+            $effectiveLguId = isset($validated['lgu_id'])
+                ? (int) $validated['lgu_id']
+                : (int) $kiosk->lgu_id;
+
+            if (!empty($validated['collection_schedule_id'])) {
+                $schedule = \App\Models\CollectionSchedule::find($validated['collection_schedule_id']);
+                if (!$schedule || (int) $schedule->lgu_id !== $effectiveLguId) {
+                    return response()->json(['success' => false, 'message' => 'Selected schedule does not belong to this LGU.'], 422);
+                }
+            }
+
             $kiosk->update($validated);
-            $kiosk->load(['assignedTo', 'lgu']);
+            $kiosk->load(['assignedTo', 'lgu', 'collectionSchedule']);
 
             $data = $kiosk->toArray();
             $data['assigned_user_name'] = $kiosk->assignedTo ? $kiosk->assignedTo->name : null;
             $data['lgu_name'] = $kiosk->lgu ? $kiosk->lgu->name : null;
+            $data['collection_schedule_name'] = $kiosk->collectionSchedule ? $kiosk->collectionSchedule->name : null;
 
             return response()->json([
                 'success' => true,
