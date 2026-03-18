@@ -153,7 +153,23 @@ class LguUserController extends Controller
             'first_name' => 'sometimes|string|max:64',
             'last_name' => 'sometimes|string|max:64',
             'email' => 'sometimes|email|unique:users,email,' . $id,
+            'lgu_id' => 'nullable|exists:lgus,id',
+            'role_slug' => 'sometimes|in:lgu_admin,lgu_staff',
         ]);
+
+        if (isset($validated['role_slug'])) {
+            $role = Role::where('slug', $validated['role_slug'])->first();
+            if (!$role) {
+                return response()->json(['success' => false, 'message' => 'Invalid role.'], 422);
+            }
+            $validated['role_id'] = $role->id;
+            unset($validated['role_slug']);
+        }
+
+        // LGU admin cannot rebind users to another LGU.
+        if (!$currentUser->isSuperAdmin()) {
+            unset($validated['lgu_id']);
+        }
 
         if (isset($validated['first_name']) || isset($validated['last_name'])) {
             $firstName = $validated['first_name'] ?? $user->first_name;
@@ -162,7 +178,7 @@ class LguUserController extends Controller
         }
 
         $user->update($validated);
-        return response()->json(['success' => true, 'message' => 'User updated', 'data' => $user]);
+        return response()->json(['success' => true, 'message' => 'User updated', 'data' => $user->fresh()->load('lgu', 'role')]);
     }
 
     public function destroy($id)
