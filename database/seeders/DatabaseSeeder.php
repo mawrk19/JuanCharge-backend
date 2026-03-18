@@ -15,15 +15,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             TestAdminSeeder::class,
-        ]);
-        $this->call([
             KioskSeeder::class,
-        ]);
-        $this->call([
-            LguUserSeeder::class,
-        ]);
-        $this->call([
-            KioskUserSeeder::class,
+            LguRoleUsersSeeder::class,
         ]);
     }
 
