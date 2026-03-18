@@ -93,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // LGU Collection Notifications
         Route::get('/collection-notifications', [CollectionNotificationController::class, 'index']);
         Route::patch('/collection-notifications/{id}/read', [CollectionNotificationController::class, 'markAsRead']);
+        Route::post('/collection-notifications/{id}/read', [CollectionNotificationController::class, 'markAsRead']);
 
         // LGU System Configuration (exchange rates)
         Route::get('/system-config', [LguSystemSettingController::class, 'show']);
