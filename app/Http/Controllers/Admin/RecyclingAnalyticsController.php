@@ -28,10 +28,7 @@ class RecyclingAnalyticsController extends Controller
                 ]);
             }
 
-            // 1. Total items recycled (all-time)
-            $totalItems = RecyclingLog::sum('count');
-
-            // 2. Breakdown by item_type (raw)
+            // 1. Breakdown by item_type (raw)
             $rawBreakdown = RecyclingLog::select('item_type', DB::raw('SUM(count) as total_count'))
                 ->groupBy('item_type')
                 ->get();
@@ -54,6 +51,15 @@ class RecyclingAnalyticsController extends Controller
             $breakdownTotalItems = (int) $breakdown->sum(function ($row) {
                 return (int) ($row['total_count'] ?? 0);
             });
+
+            // 2. Total items excluding mixed and glass categories.
+            $totalItems = (int) $breakdown
+                ->filter(function ($row) {
+                    return !in_array($row['item_type'] ?? '', ['mixed', 'glass'], true);
+                })
+                ->sum(function ($row) {
+                    return (int) ($row['total_count'] ?? 0);
+                });
 
             // 3. Daily trends (last 30 days)
             $trends = RecyclingLog::select(
