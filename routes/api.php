@@ -158,9 +158,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
     });
 
+    // LGUs - Read access for all LGU roles, Write access for super_admin only
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
+        Route::get('/lgus', [\App\Http\Controllers\LguController::class, 'index']);
+        Route::get('/lgus/{id}', [\App\Http\Controllers\LguController::class, 'show']);
+    });
+
     Route::middleware('role:super_admin')->group(function () {
-        // LGUs CRUD
-        Route::apiResource('lgus', \App\Http\Controllers\LguController::class);
+        Route::post('/lgus', [\App\Http\Controllers\LguController::class, 'store']);
+        Route::put('/lgus/{id}', [\App\Http\Controllers\LguController::class, 'update']);
+        Route::delete('/lgus/{id}', [\App\Http\Controllers\LguController::class, 'destroy']);
     });
 
     Route::middleware('role:super_admin|lgu_admin')->group(function () {
