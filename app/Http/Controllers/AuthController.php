@@ -362,25 +362,25 @@ class AuthController extends Controller
     public function verifyEmailChange(Request $request, string $token)
     {
         if (!$request->hasValidSignature()) {
-            return response()->json(['success' => false, 'message' => 'Invalid or expired verification link.'], 403);
+            return $this->emailVerificationFrontendRedirect('error', 'Verification failed or expired');
         }
 
         $cacheKey = 'email_change:' . $token;
         $payload = Cache::get($cacheKey);
 
         if (!$payload || empty($payload['user_id']) || empty($payload['new_email'])) {
-            return response()->json(['success' => false, 'message' => 'Verification request not found or expired.'], 410);
+            return $this->emailVerificationFrontendRedirect('error', 'Verification failed or expired');
         }
 
         $user = User::find($payload['user_id']);
         if (!$user) {
             Cache::forget($cacheKey);
-            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+            return $this->emailVerificationFrontendRedirect('error', 'Verification failed or expired');
         }
 
         if (User::where('email', $payload['new_email'])->where('id', '!=', $user->id)->exists()) {
             Cache::forget($cacheKey);
-            return response()->json(['success' => false, 'message' => 'Email is already in use.'], 422);
+            return $this->emailVerificationFrontendRedirect('error', 'Verification failed or expired');
         }
 
         $user->email = $payload['new_email'];
@@ -389,8 +389,18 @@ class AuthController extends Controller
 
         Cache::forget($cacheKey);
 
-        $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
-        return redirect($frontendUrl . '/profile?email_change=verified');
+        return $this->emailVerificationFrontendRedirect('success', 'Email verified successfully');
+    }
+
+    private function emailVerificationFrontendRedirect(string $status, string $message)
+    {
+        $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:3000'), '/');
+        $query = http_build_query([
+            'status' => $status,
+            'message' => $message,
+        ]);
+
+        return redirect()->away($frontendUrl . '/email-verification?' . $query);
     }
 
     public function sendPhoneVerificationOtp(Request $request)
