@@ -18,7 +18,7 @@ class FieldReportInsightsController extends Controller
     public function kpi(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN])) {
+        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN])) {
             return response()->json(['message' => 'unauthorized', 'data' => null], 403);
         }
 
@@ -150,7 +150,7 @@ class FieldReportInsightsController extends Controller
     public function missedCollections(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN])) {
+        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN])) {
             return response()->json(['message' => 'unauthorized', 'data' => null], 403);
         }
 
@@ -184,6 +184,6 @@ class FieldReportInsightsController extends Controller
             return $request->filled('lgu_id') ? (int) $request->lgu_id : null;
         }
 
-        return $user->isLguAdmin() ? (int) $user->lgu_id : null;
+        return $user->isLguRole() ? (int) $user->lgu_id : null;
     }
 }

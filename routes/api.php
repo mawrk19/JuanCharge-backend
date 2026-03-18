@@ -197,6 +197,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/lgu/tickets', [MaintenanceTicketController::class, 'index']);
     });
 
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician')->group(function () {
+        // KPI and missed-collection alerts (read-only)
+        Route::get('/lgu/reports/kpi', [FieldReportInsightsController::class, 'kpi']);
+        Route::get('/lgu/kiosks/alerts/missed-collections', [FieldReportInsightsController::class, 'missedCollections']);
+    });
+
     Route::middleware('role:super_admin|lgu_admin')->group(function () {
         // LGU Field Reports review/admin actions
         Route::post('/lgu/field-reports/{id}/verify', [FieldReportController::class, 'verify']);
@@ -206,10 +212,6 @@ Route::middleware('auth:sanctum')->group(function () {
         // Maintenance tickets write actions
         Route::patch('/lgu/tickets/{id}', [MaintenanceTicketController::class, 'update']);
         Route::post('/lgu/tickets/{id}/close', [MaintenanceTicketController::class, 'close']);
-
-        // KPI and missed-collection alerts
-        Route::get('/lgu/reports/kpi', [FieldReportInsightsController::class, 'kpi']);
-        Route::get('/lgu/kiosks/alerts/missed-collections', [FieldReportInsightsController::class, 'missedCollections']);
 
         // Audit trail (state-changing API activity)
         Route::get('/lgu/audit-trails', [AuditTrailController::class, 'index']);
