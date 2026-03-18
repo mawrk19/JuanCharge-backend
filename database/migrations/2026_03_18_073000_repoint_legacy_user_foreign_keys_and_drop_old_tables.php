@@ -28,6 +28,9 @@ return new class extends Migration
             return;
         }
 
+        // Drop legacy FK first so assigned_to can be remapped to users.id safely.
+        $this->dropForeignByColumn('kiosks', 'assigned_to');
+
         if (Schema::hasTable('lgu_users')) {
             DB::statement(
                 'UPDATE kiosks k
@@ -37,8 +40,6 @@ return new class extends Migration
                  WHERE k.assigned_to IS NOT NULL'
             );
         }
-
-        $this->dropForeignByColumn('kiosks', 'assigned_to');
 
         Schema::table('kiosks', function (Blueprint $table) {
             $table->foreign('assigned_to')->references('id')->on('users')->onDelete('set null');
@@ -63,6 +64,9 @@ return new class extends Migration
                 continue;
             }
 
+            // Drop legacy FK first so IDs can be rewritten without constraint conflicts.
+            $this->dropForeignByColumn($table, $column);
+
             if (Schema::hasTable('kiosk_users')) {
                 DB::statement(
                     "UPDATE {$table} t
@@ -72,8 +76,6 @@ return new class extends Migration
                      WHERE t.{$column} IS NOT NULL"
                 );
             }
-
-            $this->dropForeignByColumn($table, $column);
 
             Schema::table($table, function (Blueprint $tableBlueprint) use ($column, $target) {
                 $foreign = $tableBlueprint->foreign($column)->references('id')->on('users');
