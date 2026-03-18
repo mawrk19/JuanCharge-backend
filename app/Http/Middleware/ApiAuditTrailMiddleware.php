@@ -6,6 +6,7 @@ use App\Models\ActionAuditLog;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class ApiAuditTrailMiddleware
@@ -33,24 +34,32 @@ class ApiAuditTrailMiddleware
             $payload['_files'] = $fileMeta;
         }
 
-        ActionAuditLog::create([
-            'actor_user_id' => $user ? $user->id : null,
-            'actor_role_id' => $user ? $user->role_id : null,
-            'actor_lgu_id' => $user ? $user->lgu_id : null,
-            'http_method' => $request->method(),
-            'route_path' => '/' . ltrim($request->path(), '/'),
-            'route_name' => $route ? $route->getName() : null,
-            'controller_action' => $route ? $route->getActionName() : null,
-            'status_code' => $response->getStatusCode(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'query_params' => $request->query(),
-            'payload' => $payload,
-            'response_meta' => [
-                'content_type' => $response->headers->get('Content-Type'),
-            ],
-            'created_at' => now(),
-        ]);
+        try {
+            ActionAuditLog::create([
+                'actor_user_id' => $user ? $user->id : null,
+                'actor_role_id' => $user ? $user->role_id : null,
+                'actor_lgu_id' => $user ? $user->lgu_id : null,
+                'http_method' => $request->method(),
+                'route_path' => '/' . ltrim($request->path(), '/'),
+                'route_name' => $route ? $route->getName() : null,
+                'controller_action' => $route ? $route->getActionName() : null,
+                'status_code' => $response->getStatusCode(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'query_params' => $request->query(),
+                'payload' => $payload,
+                'response_meta' => [
+                    'content_type' => $response->headers->get('Content-Type'),
+                ],
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Audit trail write failed; request will continue', [
+                'path' => $request->path(),
+                'method' => $request->method(),
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $response;
     }

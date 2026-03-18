@@ -8,6 +8,7 @@
         "php": "^8.2",
         "ext-pdo": "*",
         "ext-pdo_mysql": "*",
+        "cloudinary-labs/cloudinary-laravel": "^2.1",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",
         "laravel/framework": "^8.75",
