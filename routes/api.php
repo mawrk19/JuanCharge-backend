@@ -18,6 +18,7 @@ use App\Http\Controllers\CollectionNotificationController;
 use App\Http\Controllers\Lgu\FieldReportController;
 use App\Http\Controllers\Lgu\MaintenanceTicketController;
 use App\Http\Controllers\Lgu\FieldReportInsightsController;
+use App\Http\Controllers\Lgu\AuditTrailController;
 use Illuminate\Http\Request;
 
 // Public routes
@@ -193,6 +194,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // KPI and missed-collection alerts
         Route::get('/lgu/reports/kpi', [FieldReportInsightsController::class, 'kpi']);
         Route::get('/lgu/kiosks/alerts/missed-collections', [FieldReportInsightsController::class, 'missedCollections']);
+
+        // Audit trail (state-changing API activity)
+        Route::get('/lgu/audit-trails', [AuditTrailController::class, 'index']);
 
         // Super admin may update any LGU settings; LGU admin may update own LGU.
         Route::put('/system-config', [LguSystemSettingController::class, 'upsert']);

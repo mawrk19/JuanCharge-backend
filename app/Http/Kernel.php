@@ -43,12 +43,14 @@ class Kernel extends HttpKernel
             // EnsureFrontendRequestsAreStateful removed — app uses JWT Bearer tokens, not Sanctum cookie sessions
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\ApiAuditTrailMiddleware::class,
         ],
         
         // Mobile API - stateless, token-based only (no CSRF/sessions)
         'mobile-api' => [
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\ApiAuditTrailMiddleware::class,
         ],
     ];
 
