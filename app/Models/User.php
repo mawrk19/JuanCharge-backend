@@ -98,13 +98,31 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             return $this->role->slug;
         }
 
-        return Role::slugForId((int) $this->role_id);
+        $mapped = Role::slugForId((int) $this->role_id);
+        if ($mapped !== null) {
+            return $mapped;
+        }
+
+        if ($this->role_id) {
+            $slug = Role::query()
+                ->where('id', (int) $this->role_id)
+                ->value('slug');
+
+            return $slug ? (string) $slug : null;
+        }
+
+        return null;
     }
 
     public function hasRole(int|string $role): bool
     {
         if (is_int($role)) {
-            return (int) $this->role_id === $role;
+            if ((int) $this->role_id === $role) {
+                return true;
+            }
+
+            $mappedSlug = Role::slugForId($role);
+            return $mappedSlug !== null && $this->roleSlug() === $mappedSlug;
         }
 
         return $this->roleSlug() === $role;
