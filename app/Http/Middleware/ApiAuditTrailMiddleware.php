@@ -14,6 +14,11 @@ class ApiAuditTrailMiddleware
     {
         $response = $next($request);
 
+        // Skip high-frequency machine heartbeat endpoint to avoid audit log noise.
+        if ($request->is('api/kiosk/heartbeat')) {
+            return $response;
+        }
+
         // Keep logs focused on state-changing API calls.
         if (!in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             return $response;
