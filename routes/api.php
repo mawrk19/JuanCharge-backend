@@ -15,6 +15,9 @@ use App\Http\Controllers\Auth\PasswordSetupController;
 use App\Http\Controllers\LguSystemSettingController;
 use App\Http\Controllers\CollectionScheduleController;
 use App\Http\Controllers\CollectionNotificationController;
+use App\Http\Controllers\Lgu\FieldReportController;
+use App\Http\Controllers\Lgu\MaintenanceTicketController;
+use App\Http\Controllers\Lgu\FieldReportInsightsController;
 use Illuminate\Http\Request;
 
 // Public routes
@@ -74,6 +77,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/phone/verification/verify-otp', [AuthController::class, 'verifyPhoneOtp'])->middleware('throttle:10,1');
 
     Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
+        // LGU Field Reports (staff submit + admin/super_admin review)
+        Route::post('/lgu/field-reports', [FieldReportController::class, 'store']);
+        Route::post('/kiosk-field-reports', [FieldReportController::class, 'store']); // temporary alias
+
         // LGU Collection Notifications
         Route::get('/collection-notifications', [CollectionNotificationController::class, 'index']);
         Route::patch('/collection-notifications/{id}/read', [CollectionNotificationController::class, 'markAsRead']);
@@ -171,6 +178,22 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:super_admin|lgu_admin')->group(function () {
+        // LGU Field Reports review/admin actions
+        Route::get('/lgu/field-reports', [FieldReportController::class, 'index']);
+        Route::get('/kiosk-field-reports', [FieldReportController::class, 'index']); // temporary alias
+        Route::post('/lgu/field-reports/{id}/verify', [FieldReportController::class, 'verify']);
+        Route::post('/lgu/field-reports/{id}/force-maintenance', [FieldReportController::class, 'forceMaintenance']);
+        Route::post('/lgu/field-reports/{id}/ticket', [FieldReportController::class, 'createTicket']);
+
+        // Maintenance tickets
+        Route::get('/lgu/tickets', [MaintenanceTicketController::class, 'index']);
+        Route::patch('/lgu/tickets/{id}', [MaintenanceTicketController::class, 'update']);
+        Route::post('/lgu/tickets/{id}/close', [MaintenanceTicketController::class, 'close']);
+
+        // KPI and missed-collection alerts
+        Route::get('/lgu/reports/kpi', [FieldReportInsightsController::class, 'kpi']);
+        Route::get('/lgu/kiosks/alerts/missed-collections', [FieldReportInsightsController::class, 'missedCollections']);
+
         // Super admin may update any LGU settings; LGU admin may update own LGU.
         Route::put('/system-config', [LguSystemSettingController::class, 'upsert']);
 

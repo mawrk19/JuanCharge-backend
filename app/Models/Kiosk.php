@@ -19,6 +19,7 @@ class Kiosk extends Model
         'status',
         'assigned_to',
         'last_active',
+        'last_serviced_at',
         'registered_at',
         'ip_address',
         'details',
@@ -26,6 +27,7 @@ class Kiosk extends Model
 
     protected $casts = [
         'last_active' => 'datetime',
+        'last_serviced_at' => 'datetime',
         'registered_at' => 'datetime',
         'details' => 'array',
     ];

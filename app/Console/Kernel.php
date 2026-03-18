@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Jobs\DetectMissedCollectionsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -17,6 +18,11 @@ class Kernel extends ConsoleKernel
     {
         // Auto-complete expired charging sessions every minute
         $schedule->command('charging:complete-expired')->everyMinute();
+
+        // Daily missed collection detection at 08:05 local timezone.
+        $schedule->job(new DetectMissedCollectionsJob)
+            ->dailyAt('08:05')
+            ->timezone(config('app.timezone', 'UTC'));
     }
 
     /**
