@@ -134,7 +134,7 @@ class CollectionScheduleController extends Controller
         }
 
         $recipientUsers = User::where('lgu_id', $schedule->lgu_id)
-            ->whereIn('role_id', [Role::LGU_ADMIN, Role::LGU_STAFF])
+            ->whereIn('role_id', [Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN])
             ->get(['id']);
 
         $count = 0;

@@ -16,12 +16,14 @@ class Role extends Model
     const LGU_ADMIN = 2;
     const LGU_STAFF = 3;
     const KIOSK_USER = 4;
+    const LGU_TECHNICIAN = 5;
 
     // Slug constants for route and middleware checks
     const SUPER_ADMIN_SLUG = 'super_admin';
     const LGU_ADMIN_SLUG = 'lgu_admin';
     const LGU_STAFF_SLUG = 'lgu_staff';
     const KIOSK_USER_SLUG = 'kiosk_user';
+    const LGU_TECHNICIAN_SLUG = 'lgu_technician';
 
     public static function slugForId(int $roleId): ?string
     {
@@ -30,6 +32,7 @@ class Role extends Model
             self::LGU_ADMIN => self::LGU_ADMIN_SLUG,
             self::LGU_STAFF => self::LGU_STAFF_SLUG,
             self::KIOSK_USER => self::KIOSK_USER_SLUG,
+            self::LGU_TECHNICIAN => self::LGU_TECHNICIAN_SLUG,
             default => null,
         };
     }
@@ -41,6 +44,7 @@ class Role extends Model
             self::LGU_ADMIN_SLUG => self::LGU_ADMIN,
             self::LGU_STAFF_SLUG => self::LGU_STAFF,
             self::KIOSK_USER_SLUG => self::KIOSK_USER,
+            self::LGU_TECHNICIAN_SLUG => self::LGU_TECHNICIAN,
             default => null,
         };
     }

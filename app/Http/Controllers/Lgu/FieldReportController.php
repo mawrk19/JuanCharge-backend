@@ -18,7 +18,7 @@ class FieldReportController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_STAFF])) {
+        if (!$user || !$user->hasAnyRole([Role::SUPER_ADMIN, Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN])) {
             return response()->json(['message' => 'unauthorized', 'data' => null], 403);
         }
 
@@ -255,10 +255,14 @@ class FieldReportController extends Controller
 
         if (!empty($validated['assigned_to_user_id'])) {
             $assignee = User::find($validated['assigned_to_user_id']);
-            if (!$assignee || (int) $assignee->lgu_id !== (int) $report->kiosk->lgu_id) {
+            if (
+                !$assignee
+                || (int) $assignee->lgu_id !== (int) $report->kiosk->lgu_id
+                || !$assignee->hasAnyRole([Role::LGU_STAFF, Role::LGU_TECHNICIAN])
+            ) {
                 return response()->json([
                     'message' => 'validation failed',
-                    'data' => ['assigned_to_user_id' => ['Assignee must belong to the same LGU as the kiosk.']],
+                    'data' => ['assigned_to_user_id' => ['Assignee must be an LGU staff/technician in the same LGU as the kiosk.']],
                 ], 422);
             }
         }

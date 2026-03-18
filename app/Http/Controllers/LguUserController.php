@@ -23,10 +23,10 @@ class LguUserController extends Controller
         try {
             $perPage = $request->get('per_page', 15);
             $query = User::with('lgu', 'role')
-                ->whereIn('role_id', [Role::LGU_ADMIN, Role::LGU_STAFF]);
+                ->whereIn('role_id', [Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN]);
 
             // If requester is LGU Admin or LGU Staff, filter by their LGU
-            if ($request->user()->isLguAdmin() || $request->user()->isLguStaff()) {
+            if ($request->user()->isLguAdmin() || $request->user()->isLguStaff() || $request->user()->isLguTechnician()) {
                 $query->where('lgu_id', $request->user()->lgu_id);
             }
 
@@ -62,7 +62,7 @@ class LguUserController extends Controller
                 'last_name' => 'required|string|max:64',
                 'email' => 'required|email|max:128|unique:users,email',
                 'lgu_id' => 'nullable|exists:lgus,id',
-                'role_slug' => 'nullable|in:lgu_admin,lgu_staff'
+                'role_slug' => 'nullable|in:lgu_admin,lgu_staff,lgu_technician'
             ]);
 
             $roleSlug = $validated['role_slug'] ?? 'lgu_staff';
@@ -123,7 +123,7 @@ class LguUserController extends Controller
         }
         
         // Scope check: LGU admin or staff can only view users in their own LGU
-        if (($currentUser->isLguAdmin() || $currentUser->isLguStaff()) && $user->lgu_id !== $currentUser->lgu_id) {
+        if (($currentUser->isLguAdmin() || $currentUser->isLguStaff() || $currentUser->isLguTechnician()) && $user->lgu_id !== $currentUser->lgu_id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -154,7 +154,7 @@ class LguUserController extends Controller
             'last_name' => 'sometimes|string|max:64',
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'lgu_id' => 'nullable|exists:lgus,id',
-            'role_slug' => 'sometimes|in:lgu_admin,lgu_staff',
+            'role_slug' => 'sometimes|in:lgu_admin,lgu_staff,lgu_technician',
         ]);
 
         if (isset($validated['role_slug'])) {

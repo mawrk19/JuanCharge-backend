@@ -136,6 +136,11 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         return $this->hasRole(Role::LGU_STAFF);
     }
 
+    public function isLguTechnician()
+    {
+        return $this->hasRole(Role::LGU_TECHNICIAN);
+    }
+
     public function isKioskUser()
     {
         return $this->hasRole(Role::KIOSK_USER);
@@ -143,7 +148,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 
     public function isLguRole()
     {
-        return $this->hasAnyRole([Role::LGU_ADMIN, Role::LGU_STAFF]);
+        return $this->hasAnyRole([Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN]);
     }
 
     /**

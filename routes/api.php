@@ -78,12 +78,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/phone/verification/verify-otp', [AuthController::class, 'verifyPhoneOtp'])->middleware('throttle:10,1');
 
     // Activation routes are used by kiosk/mobile redemption flows and admin tools.
-    Route::middleware('role:super_admin|lgu_admin|lgu_staff|kiosk_user')->group(function () {
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician|kiosk_user')->group(function () {
         Route::post('/charging/activate', [PortActivationController::class, 'activate']);
         Route::post('/ports/activate', [PortActivationController::class, 'activate']); // alias
     });
 
-    Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician')->group(function () {
         // LGU Field Reports (staff submit + admin/super_admin review)
         Route::post('/lgu/field-reports', [FieldReportController::class, 'store']);
         Route::post('/kiosk-field-reports', [FieldReportController::class, 'store']); // temporary alias
@@ -170,7 +170,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // LGUs - Read access for all LGU roles, Write access for super_admin only
-    Route::middleware('role:super_admin|lgu_admin|lgu_staff')->group(function () {
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician')->group(function () {
         Route::get('/lgus', [\App\Http\Controllers\LguController::class, 'index']);
         Route::get('/lgus/{id}', [\App\Http\Controllers\LguController::class, 'show']);
     });

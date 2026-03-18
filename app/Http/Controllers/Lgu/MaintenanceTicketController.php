@@ -87,10 +87,14 @@ class MaintenanceTicketController extends Controller
 
         if (array_key_exists('assigned_to_user_id', $validated) && !empty($validated['assigned_to_user_id'])) {
             $assignee = User::find($validated['assigned_to_user_id']);
-            if (!$assignee || (int) $assignee->lgu_id !== (int) $ticket->kiosk->lgu_id) {
+            if (
+                !$assignee
+                || (int) $assignee->lgu_id !== (int) $ticket->kiosk->lgu_id
+                || !$assignee->hasAnyRole([Role::LGU_STAFF, Role::LGU_TECHNICIAN])
+            ) {
                 return response()->json([
                     'message' => 'validation failed',
-                    'data' => ['assigned_to_user_id' => ['Assignee must belong to the same LGU as the kiosk.']],
+                    'data' => ['assigned_to_user_id' => ['Assignee must be an LGU staff/technician in the same LGU as the kiosk.']],
                 ], 422);
             }
         }

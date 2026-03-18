@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Hash;
 class LguRoleUsersSeeder extends Seeder
 {
     /**
-     * Seed 10 LGU users (roles 2 and 3) into unified users table.
+     * Seed 10 LGU users (admin, staff, technician) into unified users table.
      */
     public function run(): void
     {
@@ -20,12 +20,12 @@ class LguRoleUsersSeeder extends Seeder
             ['status' => 'active']
         );
 
-        $roleIds = [Role::LGU_ADMIN, Role::LGU_STAFF];
+        $roleIds = [Role::LGU_ADMIN, Role::LGU_STAFF, Role::LGU_TECHNICIAN];
 
         for ($i = 1; $i <= 10; $i++) {
             $firstName = 'LGU';
             $lastName = 'User ' . $i;
-            $roleId = $roleIds[($i - 1) % 2];
+            $roleId = $roleIds[($i - 1) % count($roleIds)];
 
             User::updateOrCreate(
                 ['email' => 'lguuser' . $i . '@test.com'],
