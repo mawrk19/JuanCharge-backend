@@ -51,6 +51,10 @@ class RecyclingAnalyticsController extends Controller
                 })
                 ->values();
 
+            $breakdownTotalItems = (int) $breakdown->sum(function ($row) {
+                return (int) ($row['total_count'] ?? 0);
+            });
+
             // 3. Daily trends (last 30 days)
             $trends = RecyclingLog::select(
                 DB::raw('DATE(created_at) as date'),
@@ -65,6 +69,7 @@ class RecyclingAnalyticsController extends Controller
                 'success' => true,
                 'data' => [
                     'total_items' => (int) $totalItems,
+                    'breakdown_total_items' => $breakdownTotalItems,
                     'breakdown' => $breakdown,
                     'trends' => $trends
                 ]
@@ -97,6 +102,8 @@ class RecyclingAnalyticsController extends Controller
             return 'mixed';
         }
 
-        return 'other';
+        // Fold unknown labels into mixed to avoid dropping counts in UIs
+        // that only visualize a fixed set of categories.
+        return 'mixed';
     }
 }
