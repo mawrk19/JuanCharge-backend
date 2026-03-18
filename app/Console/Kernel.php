@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Jobs\DetectMissedCollectionsJob;
+use App\Jobs\RefreshLeaderboardSeasonsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -22,6 +23,11 @@ class Kernel extends ConsoleKernel
         // Daily missed collection detection at 08:05 local timezone.
         $schedule->job(new DetectMissedCollectionsJob)
             ->dailyAt('08:05')
+            ->timezone(config('app.timezone', 'UTC'));
+
+        // Refresh leaderboard seasons and rotate windows when due.
+        $schedule->job(new RefreshLeaderboardSeasonsJob)
+            ->hourly()
             ->timezone(config('app.timezone', 'UTC'));
     }
 

@@ -19,6 +19,8 @@ use App\Http\Controllers\Lgu\FieldReportController;
 use App\Http\Controllers\Lgu\MaintenanceTicketController;
 use App\Http\Controllers\Lgu\FieldReportInsightsController;
 use App\Http\Controllers\Lgu\AuditTrailController;
+use App\Http\Controllers\PatronLeaderboardController;
+use App\Http\Controllers\Admin\LeaderboardAdminController;
 use Illuminate\Http\Request;
 
 // Public routes
@@ -167,6 +169,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
         Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
         Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
+
+        // Season-based leaderboard endpoints for patrons
+        Route::get('/patrons/leaderboards/current', [PatronLeaderboardController::class, 'current']);
+        Route::get('/patrons/leaderboards/seasons', [PatronLeaderboardController::class, 'seasons']);
     });
 
     // LGUs - Read access for all LGU roles, Write access for super_admin only
@@ -209,6 +215,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Admin reset password for a target user by ID.
         Route::post('/users/{id}/reset-password', [AuthController::class, 'adminResetPassword']);
+
+        // Manual leaderboard season refresh/rollover (idempotent with season_id targeting).
+        Route::post('/admin/leaderboards/refresh', [LeaderboardAdminController::class, 'refresh']);
     });
 });
 
