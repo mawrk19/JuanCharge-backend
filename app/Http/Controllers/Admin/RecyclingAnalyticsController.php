@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\KioskRecyclingLog;
+use App\Models\RecyclingLog;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -15,8 +16,8 @@ class RecyclingAnalyticsController extends Controller
     public function index()
     {
         try {
-            // Check if table exists
-            if (!\Illuminate\Support\Facades\Schema::hasTable('kiosk_recycling_logs')) {
+            // Check if source table exists
+            if (!Schema::hasTable('recycling_logs')) {
                 return response()->json([
                     'success' => true,
                     'data' => [
@@ -28,15 +29,30 @@ class RecyclingAnalyticsController extends Controller
             }
 
             // 1. Total items recycled (all-time)
-            $totalItems = \App\Models\RecyclingLog::sum('count');
+            $totalItems = RecyclingLog::sum('count');
 
-            // 2. Breakdown by item_type
-            $breakdown = \App\Models\RecyclingLog::select('item_type', DB::raw('SUM(count) as total_count'))
+            // 2. Breakdown by item_type (raw)
+            $rawBreakdown = RecyclingLog::select('item_type', DB::raw('SUM(count) as total_count'))
                 ->groupBy('item_type')
                 ->get();
 
+            // 2b. Normalize labels so UI distribution doesn't lose counts due to inconsistent item_type values.
+            $breakdown = $rawBreakdown
+                ->groupBy(function ($row) {
+                    return $this->normalizeItemType((string) $row->item_type);
+                })
+                ->map(function ($rows, $itemType) {
+                    return [
+                        'item_type' => $itemType,
+                        'total_count' => (int) $rows->sum(function ($row) {
+                            return (int) $row->total_count;
+                        }),
+                    ];
+                })
+                ->values();
+
             // 3. Daily trends (last 30 days)
-            $trends = \App\Models\RecyclingLog::select(
+            $trends = RecyclingLog::select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('SUM(count) as total_count')
             )
@@ -59,5 +75,28 @@ class RecyclingAnalyticsController extends Controller
                 'message' => 'Failed to fetch recycling analytics: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function normalizeItemType(string $itemType): string
+    {
+        $normalized = strtolower(trim($itemType));
+
+        if (in_array($normalized, ['plastic', 'pet', 'pet/plastic battles', 'pet/plastic bottles', 'plastic_bottle', 'test bottle'], true)) {
+            return 'plastic';
+        }
+
+        if (in_array($normalized, ['metal', 'can', 'tin/cans'], true)) {
+            return 'metal';
+        }
+
+        if (in_array($normalized, ['glass', 'glass_bottle'], true)) {
+            return 'glass';
+        }
+
+        if ($normalized === 'mixed') {
+            return 'mixed';
+        }
+
+        return 'other';
     }
 }
