@@ -661,15 +661,34 @@ class ChargingController extends Controller
                 ], 401);
             }
 
-            // Get total charging sessions (completed and cancelled count as charges)
-            $totalCharges = ChargingSession::where('user_id', $user->id)
-                ->whereIn('status', ['completed', 'cancelled'])
+            // Count charge activity from both sessions and QR/mobile charge redemptions.
+            $sessionChargeCount = ChargingSession::where('user_id', $user->id)
+                ->whereIn('status', ['active', 'completed', 'cancelled'])
                 ->count();
 
-            // Get total energy used (from both completed AND cancelled sessions, convert Wh to kWh)
+            $redemptionChargeCount = PointsTransaction::where('user_id', $user->id)
+                ->where('type', 'charge')
+                ->where('points', '<', 0)
+                ->count();
+
+            $totalCharges = max($sessionChargeCount, $redemptionChargeCount);
+
+            // Get total energy used (include active sessions for real-time mobile impact)
             $totalEnergyWh = ChargingSession::where('user_id', $user->id)
-                ->whereIn('status', ['completed', 'cancelled'])
+                ->whereIn('status', ['active', 'completed', 'cancelled'])
                 ->sum('energy_wh');
+
+            // Fallback: when kiosk redemption flow has no charging_session yet,
+            // estimate energy from redeemed charge points.
+            if ((float) $totalEnergyWh <= 0.0) {
+                $redeemedChargePoints = abs((int) PointsTransaction::where('user_id', $user->id)
+                    ->where('type', 'charge')
+                    ->where('points', '<', 0)
+                    ->sum('points'));
+
+                $totalEnergyWh = $redeemedChargePoints * self::MINUTES_PER_POINT * self::WH_PER_MINUTE;
+            }
+
             $totalEnergyKwh = $totalEnergyWh / 1000; // Convert Wh to kWh
 
             // Calculate CO2 saved (approximately 0.5 kg CO2 per kWh)
@@ -866,9 +885,16 @@ class ChargingController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
             }
 
-            $totalCharges = ChargingSession::where('user_id', $user->id)
-                ->whereIn('status', ['completed', 'cancelled'])
+            $sessionChargeCount = ChargingSession::where('user_id', $user->id)
+                ->whereIn('status', ['active', 'completed', 'cancelled'])
                 ->count();
+
+            $redemptionChargeCount = PointsTransaction::where('user_id', $user->id)
+                ->where('type', 'charge')
+                ->where('points', '<', 0)
+                ->count();
+
+            $totalCharges = max($sessionChargeCount, $redemptionChargeCount);
 
             $totalRecycled = (float) ($user->total_recyclables_weight ?? 0);
             $pointsTotal = (int) ($user->points_total ?? 0);
