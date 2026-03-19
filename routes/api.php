@@ -106,9 +106,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/lgu-users/{id}', [LguUserController::class, 'destroy']);
         Route::patch('/lgu-users/{id}/disable', [LguUserController::class, 'disableUser']);
 
-        // Kiosks CRUD
-        Route::apiResource('kiosks', KioskController::class);
-        Route::get('/kiosks/id/{id}', [KioskController::class, 'show']);
+        // Kiosk write actions
+        Route::post('/kiosks', [KioskController::class, 'store']);
+        Route::put('/kiosks/{id}', [KioskController::class, 'update']);
+        Route::delete('/kiosks/{id}', [KioskController::class, 'destroy']);
 
         // Collection schedules per LGU
         Route::get('/collection-schedules', [CollectionScheduleController::class, 'index']);
@@ -147,6 +148,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // New Recycling Analytics for Hardware Stats
         Route::get('/admin/analytics/recycling', [\App\Http\Controllers\Admin\RecyclingAnalyticsController::class, 'index']);
+    });
+
+    Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician|kiosk_user')->group(function () {
+        // Kiosk read actions for maps and status views.
+        Route::get('/kiosks', [KioskController::class, 'index']);
+        Route::get('/kiosks/id/{id}', [KioskController::class, 'show']);
+        Route::get('/kiosks/{id}', [KioskController::class, 'show']);
     });
 
     Route::middleware('role:kiosk_user')->group(function () {
