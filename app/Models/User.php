@@ -10,6 +10,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 {
@@ -123,18 +124,22 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             $slugs[] = (string) $primary;
         }
 
-        if (Schema::hasTable('role_user')) {
-            if ($this->relationLoaded('roles')) {
-                $extra = $this->roles->pluck('slug')->filter()->values()->all();
-            } else {
-                $extra = $this->roles()->pluck('slug')->filter()->values()->all();
-            }
+        try {
+            if (Schema::hasTable('role_user')) {
+                if ($this->relationLoaded('roles')) {
+                    $extra = $this->roles->pluck('slug')->filter()->values()->all();
+                } else {
+                    $extra = $this->roles()->pluck('slug')->filter()->values()->all();
+                }
 
-            foreach ($extra as $slug) {
-                if (!in_array($slug, $slugs, true)) {
-                    $slugs[] = (string) $slug;
+                foreach ($extra as $slug) {
+                    if (!in_array($slug, $slugs, true)) {
+                        $slugs[] = (string) $slug;
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            Log::warning('roleSlugs fallback to primary role only', ['user_id' => $this->id, 'error' => $e->getMessage()]);
         }
 
         return $slugs;
@@ -148,19 +153,23 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             $ids[] = (int) $this->role_id;
         }
 
-        if (Schema::hasTable('role_user')) {
-            if ($this->relationLoaded('roles')) {
-                $extra = $this->roles->pluck('id')->all();
-            } else {
-                $extra = $this->roles()->pluck('id')->all();
-            }
+        try {
+            if (Schema::hasTable('role_user')) {
+                if ($this->relationLoaded('roles')) {
+                    $extra = $this->roles->pluck('id')->all();
+                } else {
+                    $extra = $this->roles()->pluck('id')->all();
+                }
 
-            foreach ($extra as $id) {
-                $id = (int) $id;
-                if (!in_array($id, $ids, true)) {
-                    $ids[] = $id;
+                foreach ($extra as $id) {
+                    $id = (int) $id;
+                    if (!in_array($id, $ids, true)) {
+                        $ids[] = $id;
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            Log::warning('roleIds fallback to primary role only', ['user_id' => $this->id, 'error' => $e->getMessage()]);
         }
 
         return $ids;

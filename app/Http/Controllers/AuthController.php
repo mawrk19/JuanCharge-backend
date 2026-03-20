@@ -22,58 +22,84 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
+        try {
+            $credentials = $request->validate([
+                'email' => 'required|email',
+                'password' => 'required'
+            ]);
 
-        $user = User::with('role')->where('email', $credentials['email'])->first();
+            $user = User::with('role')->where('email', $credentials['email'])->first();
 
-        // Validate user exists and password is correct
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid credentials'
-            ], 401);
-        }
-
-        // Check if the user's account is pending
-        if ($user->status === 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Your account is pending. Please check your email and click the verification link to activate it.'
-            ], 403);
-        }
-
-        // Create Sanctum token
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        // Prepare response
-        $response = [
-            'success' => true,
-            'user' => $user,
-            'token' => $token,
-            'user_type' => $user->role ? $user->role->slug : 'unknown',
-            'should_update_profile' => false,
-            'prompt_message' => null
-        ];
-
-        // First login logic
-        if ($user->is_first_login) {
-            $response['should_update_profile'] = true;
-            $response['prompt_message'] = 'Welcome! Please update your profile and change your password for security.';
-        }
-
-        // Profile completeness check for kiosk users
-        if ($user->isKioskUser()) {
-            $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->phone_number);
-            if ($isIncomplete) {
-                $response['should_update_profile'] = true;
-                $response['prompt_message'] = 'Please complete your profile information.';
+            // Validate user exists and password is correct
+            if (!$user || !Hash::check($credentials['password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials'
+                ], 401);
             }
-        }
 
-        return response()->json($response);
+            // Check if the user's account is pending
+            if ($user->status === 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account is pending. Please check your email and click the verification link to activate it.'
+                ], 403);
+            }
+
+            // Create Sanctum token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            $userType = $user->roleSlug() ?? ($user->role ? $user->role->slug : 'unknown');
+
+            // Prepare response
+            $response = [
+                'success' => true,
+                'user' => $user,
+                'token' => $token,
+                'user_type' => $userType,
+                'should_update_profile' => false,
+                'prompt_message' => null
+            ];
+
+            // First login logic
+            if ($user->is_first_login) {
+                $response['should_update_profile'] = true;
+                $response['prompt_message'] = 'Welcome! Please update your profile and change your password for security.';
+            }
+
+            // Profile completeness check for kiosk users
+            if ($user->isKioskUser()) {
+                $isIncomplete = empty($user->first_name) || empty($user->last_name) || empty($user->phone_number);
+                if ($isIncomplete) {
+                    $response['should_update_profile'] = true;
+                    $response['prompt_message'] = 'Please complete your profile information.';
+                }
+            }
+
+            return response()->json($response);
+        } catch (\Throwable $e) {
+            Log::error('Login failed with exception', [
+                'email' => (string) $request->input('email', ''),
+                'error' => $e->getMessage(),
+            ]);
+
+            $message = $e->getMessage();
+            if (
+                str_contains($message, 'SQLSTATE[HY000] [2002]')
+                || str_contains($message, 'php_network_getaddresses')
+                || str_contains($message, 'getaddrinfo for mysql.railway.internal failed')
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Database is temporarily unavailable. Please try again shortly.'
+                ], 503);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Login is temporarily unavailable. Please try again shortly.'
+            ], 500);
+        }
     }
 
     /**
