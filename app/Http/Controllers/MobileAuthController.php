@@ -43,6 +43,8 @@ class MobileAuthController extends Controller
         return response()->json([
             'success' => true,
             'user' => $user,
+            'user_type' => $user->roleSlug(),
+            'roles' => $user->roleSlugs(),
             'device_token' => $deviceToken,
             'api_token' => $sanctumToken,
             'token_expires_at' => $expiresAt->toIso8601String(),
@@ -65,6 +67,8 @@ class MobileAuthController extends Controller
         return response()->json([
             'success' => true,
             'user' => $user,
+            'user_type' => $user->roleSlug(),
+            'roles' => $user->roleSlugs(),
             'api_token' => $sanctumToken,
             'token_expires_at' => $user->token_expires_at->toIso8601String(),
         ]);
@@ -122,7 +126,9 @@ class MobileAuthController extends Controller
             'success' => true,
             'api_token' => $user->createToken('mobile_auth_token')->plainTextToken,
             'device_token' => $deviceToken,
-            'user' => $user
+            'user' => $user,
+            'user_type' => $user->roleSlug(),
+            'roles' => $user->roleSlugs(),
         ]);
     }
 

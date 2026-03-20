@@ -57,6 +57,7 @@ class AuthController extends Controller
                 'user' => $user,
                 'token' => $token,
                 'user_type' => $userType,
+                'roles' => $user->roleSlugs(),
                 'should_update_profile' => false,
                 'prompt_message' => null
             ];
@@ -119,7 +120,9 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'user' => $user->load('role', 'lgu')
+            'user' => $user->load('role', 'lgu'),
+            'user_type' => $user->roleSlug(),
+            'roles' => $user->roleSlugs(),
         ]);
     }
 
@@ -142,7 +145,9 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'valid' => true,
-            'user' => $user->load('role', 'lgu')
+            'user' => $user->load('role', 'lgu'),
+            'user_type' => $user->roleSlug(),
+            'roles' => $user->roleSlugs(),
         ]);
     }
 
@@ -170,7 +175,8 @@ class AuthController extends Controller
             'success' => true,
             'token' => $token,
             'user' => $user->fresh()->load('role', 'lgu'),
-            'user_type' => $user->role ? $user->role->slug : 'unknown',
+            'user_type' => $user->roleSlug(),
+            'roles' => $user->roleSlugs(),
         ]);
     }
 
