@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 {
@@ -69,6 +70,11 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         return $this->belongsTo(Role::class);
     }
 
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'role_user')->withTimestamps();
+    }
+
     public function lgu()
     {
         return $this->belongsTo(Lgu::class);
@@ -94,38 +100,79 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function roleSlug(): ?string
     {
+        $slugs = $this->roleSlugs();
+        return !empty($slugs) ? (string) $slugs[0] : null;
+    }
+
+    public function roleSlugs(): array
+    {
+        $slugs = [];
+
+        // Keep primary role_id as first for backward compatibility.
+        $primary = null;
         if ($this->relationLoaded('role') && $this->role) {
-            return $this->role->slug;
+            $primary = $this->role->slug;
+        } else {
+            $primary = Role::slugForId((int) $this->role_id);
+            if ($primary === null && $this->role_id) {
+                $primary = Role::query()->where('id', (int) $this->role_id)->value('slug');
+            }
         }
 
-        $mapped = Role::slugForId((int) $this->role_id);
-        if ($mapped !== null) {
-            return $mapped;
+        if (!empty($primary)) {
+            $slugs[] = (string) $primary;
         }
 
-        if ($this->role_id) {
-            $slug = Role::query()
-                ->where('id', (int) $this->role_id)
-                ->value('slug');
+        if (Schema::hasTable('role_user')) {
+            if ($this->relationLoaded('roles')) {
+                $extra = $this->roles->pluck('slug')->filter()->values()->all();
+            } else {
+                $extra = $this->roles()->pluck('slug')->filter()->values()->all();
+            }
 
-            return $slug ? (string) $slug : null;
+            foreach ($extra as $slug) {
+                if (!in_array($slug, $slugs, true)) {
+                    $slugs[] = (string) $slug;
+                }
+            }
         }
 
-        return null;
+        return $slugs;
+    }
+
+    public function roleIds(): array
+    {
+        $ids = [];
+
+        if (!empty($this->role_id)) {
+            $ids[] = (int) $this->role_id;
+        }
+
+        if (Schema::hasTable('role_user')) {
+            if ($this->relationLoaded('roles')) {
+                $extra = $this->roles->pluck('id')->all();
+            } else {
+                $extra = $this->roles()->pluck('id')->all();
+            }
+
+            foreach ($extra as $id) {
+                $id = (int) $id;
+                if (!in_array($id, $ids, true)) {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     public function hasRole(int|string $role): bool
     {
         if (is_int($role)) {
-            if ((int) $this->role_id === $role) {
-                return true;
-            }
-
-            $mappedSlug = Role::slugForId($role);
-            return $mappedSlug !== null && $this->roleSlug() === $mappedSlug;
+            return in_array($role, $this->roleIds(), true);
         }
 
-        return $this->roleSlug() === $role;
+        return in_array($role, $this->roleSlugs(), true);
     }
 
     public function hasAnyRole(array $roles): bool
@@ -180,7 +227,8 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
     public function getJWTCustomClaims()
     {
         return [
-            'role' => $this->role ? $this->role->slug : null,
+            'role' => $this->roleSlug(),
+            'roles' => $this->roleSlugs(),
             'lgu_id' => $this->lgu_id,
         ];
     }

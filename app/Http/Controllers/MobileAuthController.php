@@ -24,11 +24,9 @@ class MobileAuthController extends Controller
             'password' => 'required'
         ]);
 
-        $user = User::where('email', $credentials['email'])
-            ->where('role_id', Role::KIOSK_USER)
-            ->first();
+        $user = User::where('email', $credentials['email'])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (!$user || !$user->isKioskUser() || !Hash::check($credentials['password'], $user->password)) {
             return response()->json(['success' => false, 'message' => 'Invalid email or password'], 401);
         }
 

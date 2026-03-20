@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use App\Mail\WelcomeLguUserMail;
 use Illuminate\Support\Facades\URL;
 use App\Traits\SendsBrevoEmails;
+use Illuminate\Support\Facades\Schema;
 
 class LguUserController extends Controller
 {
@@ -62,14 +63,22 @@ class LguUserController extends Controller
                 'last_name' => 'required|string|max:64',
                 'email' => 'required|email|max:128|unique:users,email',
                 'lgu_id' => 'nullable|exists:lgus,id',
-                'role_slug' => 'nullable|in:lgu_admin,lgu_staff,lgu_technician'
+                'role_slug' => 'nullable|in:lgu_admin,lgu_staff,lgu_technician,kiosk_user',
+                'role_slugs' => 'sometimes|array|min:1',
+                'role_slugs.*' => 'in:super_admin,lgu_admin,lgu_staff,lgu_technician,kiosk_user',
             ]);
 
-            $roleSlug = $validated['role_slug'] ?? 'lgu_staff';
-            $role = Role::where('slug', $roleSlug)->first();
-            if (!$role) {
+            $requestedRoleSlugs = $validated['role_slugs'] ?? [];
+            if (empty($requestedRoleSlugs)) {
+                $requestedRoleSlugs = [($validated['role_slug'] ?? 'lgu_staff')];
+            }
+
+            $roles = Role::whereIn('slug', $requestedRoleSlugs)->get();
+            if ($roles->count() !== count(array_unique($requestedRoleSlugs))) {
                 return response()->json(['success' => false, 'message' => 'Invalid role.'], 422);
             }
+
+            $primaryRole = $roles->firstWhere('slug', $requestedRoleSlugs[0]) ?? $roles->first();
             
             // Authorization Check
             if ($request->user()->isLguAdmin()) {
@@ -86,11 +95,15 @@ class LguUserController extends Controller
                 'last_name' => $validated['last_name'],
                 'email' => $validated['email'],
                 'lgu_id' => $validated['lgu_id'] ?? $request->user()->lgu_id,
-                'role_id' => $role->id,
+                'role_id' => $primaryRole->id,
                 'status' => 'pending',
                 'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(12)),
                 'is_first_login' => true,
             ]);
+
+            if (Schema::hasTable('role_user')) {
+                $user->roles()->syncWithoutDetaching($roles->pluck('id')->all());
+            }
 
             $verificationUrl = URL::temporarySignedRoute(
                 'lgu.email.verify', // Ensure this route exists and points to a valid handler
@@ -154,16 +167,27 @@ class LguUserController extends Controller
             'last_name' => 'sometimes|string|max:64',
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'lgu_id' => 'nullable|exists:lgus,id',
-            'role_slug' => 'sometimes|in:lgu_admin,lgu_staff,lgu_technician',
+            'role_slug' => 'sometimes|in:super_admin,lgu_admin,lgu_staff,lgu_technician,kiosk_user',
+            'role_slugs' => 'sometimes|array|min:1',
+            'role_slugs.*' => 'in:super_admin,lgu_admin,lgu_staff,lgu_technician,kiosk_user',
         ]);
 
-        if (isset($validated['role_slug'])) {
-            $role = Role::where('slug', $validated['role_slug'])->first();
-            if (!$role) {
+        if (isset($validated['role_slugs']) || isset($validated['role_slug'])) {
+            $requestedRoleSlugs = $validated['role_slugs'] ?? [$validated['role_slug']];
+            $roles = Role::whereIn('slug', $requestedRoleSlugs)->get();
+            if ($roles->count() !== count(array_unique($requestedRoleSlugs))) {
                 return response()->json(['success' => false, 'message' => 'Invalid role.'], 422);
             }
-            $validated['role_id'] = $role->id;
+
+            $primaryRole = $roles->firstWhere('slug', $requestedRoleSlugs[0]) ?? $roles->first();
+            $validated['role_id'] = $primaryRole->id;
+
+            if (Schema::hasTable('role_user')) {
+                $user->roles()->sync($roles->pluck('id')->all());
+            }
+
             unset($validated['role_slug']);
+            unset($validated['role_slugs']);
         }
 
         // LGU admin cannot rebind users to another LGU.
