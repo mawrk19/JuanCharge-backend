@@ -78,6 +78,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/email/change-request', [AuthController::class, 'requestEmailChangeVerification']);
     Route::post('/auth/phone/verification/send-otp', [AuthController::class, 'sendPhoneVerificationOtp'])->middleware('throttle:3,1');
     Route::post('/auth/phone/verification/verify-otp', [AuthController::class, 'verifyPhoneOtp'])->middleware('throttle:10,1');
+    
+    // Leaderboard routes (Global access within auth:sanctum)
+    Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
+    Route::get('/patrons/leaderboards/current', [PatronLeaderboardController::class, 'current']);
+    Route::get('/patrons/leaderboards/seasons', [PatronLeaderboardController::class, 'seasons']);
 
     // Activation routes are used by kiosk/mobile redemption flows and admin tools.
     Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician|kiosk_user')->group(function () {
@@ -176,12 +181,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Dashboard Stats & Social
         Route::get('/patron/dashboard/stats', [ChargingController::class, 'getDashboardStats']);
-        Route::get('/patron/leaderboard', [ChargingController::class, 'getLeaderboard']);
+
         Route::get('/patron/achievements', [ChargingController::class, 'getAchievements']);
 
-        // Season-based leaderboard endpoints for patrons
-        Route::get('/patrons/leaderboards/current', [PatronLeaderboardController::class, 'current']);
-        Route::get('/patrons/leaderboards/seasons', [PatronLeaderboardController::class, 'seasons']);
+
     });
 
     // LGUs - Read access for all LGU roles, Write access for super_admin only

@@ -765,7 +765,7 @@ class ChargingController extends Controller
                     ->groupBy('user_id');
 
                 // Combine rankings
-                $rankingsRaw = User::where("role_id", \App\Models\Role::KIOSK_USER)->leftJoinSub($earnings, 'earnings', function ($join) {
+                $rankingsRaw = User::leftJoinSub($earnings, 'earnings', function ($join) {
                     $join->on('users.id', '=', 'earnings.user_id');
                 })
                     ->leftJoinSub($weights, 'weights', function ($join) {
@@ -821,7 +821,7 @@ class ChargingController extends Controller
                     $user->save();
                 }
 
-                $rankings = User::where("role_id", \App\Models\Role::KIOSK_USER)->orderBy('points_total', 'desc')
+                $rankings = User::orderBy('points_total', 'desc')
                     ->limit(10)
                     ->get()
                     ->map(function ($u, $index) {
@@ -834,7 +834,7 @@ class ChargingController extends Controller
                         ];
                     });
 
-                $userRank = User::where("role_id", \App\Models\Role::KIOSK_USER)->where('points_total', '>', $user->points_total)->count() + 1;
+                $userRank = User::where('points_total', '>', $user->points_total)->count() + 1;
                 $userPoints = (int) $user->points_total;
                 $userRecycled = (float) ($user->total_recyclables_weight ?? 0);
             }
@@ -844,7 +844,7 @@ class ChargingController extends Controller
             if ($userRank > 10) {
                 $thresholdQuery = $startDate
                     ? PointsTransaction::where('transaction_type', 'earned')->where('created_at', '>=', $startDate)->select(DB::raw('SUM(points) as p'))->groupBy('user_id')->orderBy('p', 'desc')
-                    : User::where("role_id", \App\Models\Role::KIOSK_USER)->orderBy('points_total', 'desc')->select('points_total as p');
+                    : User::orderBy('points_total', 'desc')->select('points_total as p');
 
                 $top10Threshold = $thresholdQuery->skip(9)->take(1)->value('p') ?? 100;
                 $percentToRank = min(100, round(($userPoints / max(1, $top10Threshold)) * 100));

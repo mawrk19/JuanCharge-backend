@@ -179,9 +179,6 @@ class LeaderboardSeasonService
 
         return LeaderboardEntry::with(['user:id,name,email,role_id'])
             ->where('season_id', $season->id)
-            ->whereHas('user', function ($q) {
-                $q->where('role_id', Role::KIOSK_USER);
-            })
             ->orderByDesc('total_recycled_weight')
             ->orderBy('user_id')
             ->get();
