@@ -157,7 +157,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/kiosks/{id}', [KioskController::class, 'show']);
     });
 
-    Route::middleware('role:kiosk_user|lgu_admin|lgu_staff|lgu_technician')->group(function () {
+    Route::middleware('role:super_admin|kiosk_user|lgu_admin|lgu_staff|lgu_technician')->group(function () {
         // Charging Session Routes
         Route::post('/charging/redeem', [ChargingController::class, 'redeem']);
         Route::get('/charging/active', [ChargingController::class, 'getActive']);
