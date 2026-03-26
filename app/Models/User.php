@@ -129,7 +129,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
                 if ($this->relationLoaded('roles')) {
                     $extra = $this->roles->pluck('slug')->filter()->values()->all();
                 } else {
-                    $extra = $this->roles()->pluck('slug')->filter()->values()->all();
+                    $extra = $this->roles()->pluck('roles.slug')->filter()->values()->all();
                 }
 
                 foreach ($extra as $slug) {
@@ -158,7 +158,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
                 if ($this->relationLoaded('roles')) {
                     $extra = $this->roles->pluck('id')->all();
                 } else {
-                    $extra = $this->roles()->pluck('id')->all();
+                    $extra = $this->roles()->pluck('roles.id')->all();
                 }
 
                 foreach ($extra as $id) {
