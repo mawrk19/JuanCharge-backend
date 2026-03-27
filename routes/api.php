@@ -87,7 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Activation routes are used by kiosk/mobile redemption flows and admin tools.
     Route::middleware ('auth:sanctum')->group(function (){
         Route::post('/charging/activate', [PortActivationController::class, 'activate']);
-        Route::post('/ports/activate', [PortActivationController::class, 'activate']); // alias
+       // alias
     });
 
     Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician')->group(function () {
@@ -175,7 +175,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/mobile/vouchers/claim', [PointVoucherController::class, 'claim']);
         Route::post('/mobile/vouchers/claim-signed', [PointVoucherController::class, 'claimSigned']); // Offline Code Claim
         Route::post('/patron/points/claim-signed', [PointVoucherController::class, 'claimSigned']); // Alias for Mobile App compatibility
-
+        Route::post('/ports/activate', [PortActivationController::class, 'activate']); 
         // Recycling Routes
         Route::post('/patron/recycling/deposit', [ChargingController::class, 'depositRecyclables']);
 
