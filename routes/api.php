@@ -85,7 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/patrons/leaderboards/seasons', [PatronLeaderboardController::class, 'seasons']);
 
     // Activation routes are used by kiosk/mobile redemption flows and admin tools.
-    Route::middleware('role:super_admin|lgu_admin|lgu_staff|lgu_technician|kiosk_user')->group(function () {
+    Route::middleware ('auth:sanctum')->group(function (){
         Route::post('/charging/activate', [PortActivationController::class, 'activate']);
         Route::post('/ports/activate', [PortActivationController::class, 'activate']); // alias
     });
